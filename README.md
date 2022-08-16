@@ -1,7 +1,7 @@
 ## <a name="started"></a>Getting started
 
 ```sh
-## clone github repository and install himut
+## clone github repository and install hapmix
 git clone https://github.com/sjin09/hapmix
 cd hapmix
 /bin/bash install.sh
