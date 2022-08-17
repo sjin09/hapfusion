@@ -30,17 +30,14 @@ def load_loci(
     tname2tsize: Dict[str, int]
 ) -> Tuple[List[str], List[Tuple[str, int, int]]]:
 
-    chrom_lst = []
     chrom2loci_lst = defaultdict(list)
     if region is None and region_list is not None:
         for line in open(region_list).readlines():
             arr = line.strip().split()
             chrom = arr[0]
             if len(arr) == 1:
-                chrom_lst.append(chrom)
                 chrom2loci_lst[chrom].append((chrom, 0, tname2tsize[chrom]))
             else:
-                chrom_lst.append(chrom)
                 chrom2loci_lst[chrom].append((chrom, int(arr[1]), int(arr[2])))
     elif region is not None and region_list is None:
         chrom_lst = [region]
@@ -54,11 +51,14 @@ def load_loci(
             arr = line.strip().split()
             chrom = arr[0]
             if len(arr) == 1:
-                chrom_lst.append(chrom)
                 chrom2loci_lst[chrom].append((chrom, 0, tname2tsize[chrom]))
             else:
-                chrom_lst.append(chrom)
                 chrom2loci_lst[chrom].append((chrom, int(arr[1]), int(arr[2])))
+    else:
+        for tname, tsize in tname2tsize.items():
+            chrom2loci_lst[tname].append((tname, 0, tsize))
+
+    chrom_lst = natsort.natsorted(list(chrom2loci_lst.keys()))
     for chrom in chrom_lst:
         chrom2loci_lst[chrom] = natsort.natsorted(chrom2loci_lst[chrom])
     return chrom_lst, chrom2loci_lst
