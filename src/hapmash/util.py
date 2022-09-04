@@ -2,6 +2,7 @@ import os
 import sys
 import psutil
 import natsort
+import numpy as np
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
@@ -20,7 +21,7 @@ class NestedDefaultDict(defaultdict):
 
 
 def exit():
-    print("exiting hapmix")
+    print("exiting hapmash")
     sys.exit(0)
 
 
@@ -131,7 +132,7 @@ def check_vcf_file(vcf_file: str):
                     print("tabix index file does not exist")
                     return 1
             elif vcf_file.endswith(".gz"):
-                print("hapmix doesn't support loading of gzip compressed VCF files") 
+                print("hapmash doesn't support loading of gzip compressed VCF files") 
                 return 1
             else:
                 print("VCF file must have the .vcf suffix")
@@ -165,13 +166,13 @@ def check_out_file(out_file: str):
     if out_file.endswith(".vcf"):
         return 0 
     elif out_file.endswith(".gz"):
-        print("hapmix doesn't support return gzip compressed VCF files") 
+        print("hapmash doesn't support return gzip compressed VCF files") 
         return 1
     elif out_file.endswith(".bgz"):
-        print("hapmix doesn't support return bgzip compressed VCF files") 
+        print("hapmash doesn't support return bgzip compressed VCF files") 
         return 1
     else:
-        print("hapmix doesn't recgonise the suffix of the file")
+        print("hapmash doesn't recgonise the suffix of the file")
         return 1
 
     
@@ -214,3 +215,80 @@ def check_phaser_input_exists(
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters")
         exit()
+
+
+def get_blast_sequence_identity(read) -> float: 
+
+    mismatch_count = 0
+    for cstuple in read.cstuple_lst:
+        mstate, _ref, _alt, ref_len, alt_len = cstuple
+        if mstate == 1:  # match
+            continue
+        elif mstate == 2:  # mismatch: snp
+            mismatch_count += 1
+        elif mstate == 3:  # mismatch: insertion
+            mismatch_count += alt_len
+        elif mstate == 4:  # mismatch: deletion
+            mismatch_count += ref_len
+    blast_sequence_identity = (read.target_alignment_length - mismatch_count)/float(read.target_alignment_length)
+    return blast_sequence_identity
+
+
+def get_mismatch_range(
+    tpos: int, 
+    qpos: int,
+    qlen: int, 
+    window: int
+):
+    qstart, qend = [qpos - window, qpos + window]
+    if qstart < 0:
+        urange = window + qstart
+        drange = window + abs(qstart)
+    elif qend > qlen:
+        urange = window + abs(qend - qlen)
+        drange = qlen - qpos
+    else:
+        urange = window
+        drange = window
+    tstart = tpos - urange
+    tend = tpos + drange
+    return tstart, tend
+
+def update_allelecounts(
+    ccs,
+    allelecounts: Dict[int, np.ndarray],
+):
+
+    tpos = ccs.tstart
+    qpos = ccs.qstart
+    ccs.tpos2qpos = {}
+    ccs.tpos2qbase = {} 
+    if ccs.is_primary:
+        for cstuple in ccs.cstuple_lst:
+            state, ref, alt, ref_len, alt_len, = cstuple
+            if state == 1:  # match
+                for i, alt_base in enumerate(alt):
+                    ccs.tpos2qpos[tpos + i + 1] = qpos + i
+                    allelecounts[tpos + i + 1][base2idx[alt_base]] += 1
+                    ccs.tpos2qbase[tpos + i + 1] = (alt_base, ccs.bq_int_lst[qpos + i])
+            elif state == 2:  # sub
+                ccs.tpos2qpos[tpos + 1] = qpos
+                allelecounts[tpos + 1][base2idx[alt]] += 1
+                ccs.tpos2qbase[tpos + 1] = (alt, ccs.bq_int_lst[qpos])
+            elif state == 3:  # insertion
+                allelecounts[tpos + 1][4] += 1
+            elif state == 4:  # deletion
+                for j in range(len(ref[1:])):
+                    allelecounts[tpos + j + 1][5] += 1
+                    ccs.tpos2qbase[tpos + j + 1] = ("-", 0)
+            tpos += ref_len
+            qpos += alt_len
+    # else:
+    #     return hapmash.cslib.cs2tpos2qbase(ccs)
+
+## >>> from PIL import Image
+## >>> from PIL import Image, ImageDraw
+## >>> im = Image.new('RGBA', (100, 100), (0, 0, 0, 0))
+## >>> draw = ImageDraw.Draw(im)
+## >>> draw.rectangle((10, 10, 90, 90), fill="yellow", outline="red")
+## >>> draw.save("out.png")

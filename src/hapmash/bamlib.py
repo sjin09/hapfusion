@@ -4,9 +4,9 @@ import random
 import natsort
 import numpy as np
 import dataclasses
-import hapmix.util
-import hapmix.cslib
-import hapmix.vcflib
+import hapmash.util
+import hapmash.cslib
+import hapmash.vcflib
 from typing import List, Dict, Tuple
 
 
@@ -35,8 +35,51 @@ class BAM:
                 self.is_primary = False
         else:
             self.is_primary = False
+        hapmash.cslib.cs2tuple(self)
+        hapmash.cslib.cs2subindel(self)
+        
+    def load_mutations(
+        self, 
+        het_set,
+        hom_set,
+        phased_hetsnp_set,
+    ):
 
-
+        self.hetsnp_lst = []
+        self.homsnp_lst = []
+        self.hetindel_lst = []
+        self.homindel_lst = []
+        self.denovo_sbs_lst = []
+        self.denovo_indel_lst = []
+        for idx, (chrom, tpos, ref, alt) in enumerate(self.tsbs_lst):
+            alpha = self.qsbs_bq_lst[idx]/float(93)
+            if (chrom, tpos, ref, alt) in hom_set:
+                self.homsnp_lst.append((chrom, tpos, ref, alt, alpha))
+            elif (chrom, tpos, ref, alt) in het_set:
+                continue
+            elif (chrom, tpos, ref, alt) in phased_hetsnp_set:
+                self.hetsnp_lst.append((chrom, tpos, ref, alt, alpha))
+            else:
+                self.denovo_sbs_lst.append((chrom, tpos, ref, alt, alpha))
+                
+        for idx, (chrom, tpos, ref, alt) in enumerate(self.tins_lst): ## TODO, indels can be approximately similar
+            
+            bq_sum = sum(self.qins_bq_lst[idx])
+            alpha = bq_sum/float((93 * len(alt)))
+            if (chrom, tpos, ref, alt) in het_set:
+                self.hetindel_lst.append((chrom, tpos, ref, alt, alpha))
+            elif (chrom, tpos, ref, alt) in hom_set:
+                self.homindel_lst.append((chrom, tpos, ref, alt, alpha))
+            else:
+                self.denovo_indel_lst.append((chrom, tpos, ref, alt, alpha))
+        self.mismatch_lst = natsort.natsorted([self.denovo_sbs_lst + self.denovo_indel_lst + self.hetindel_lst + self.homindel_lst])
+        print(self.mismatch_lst)
+        for mismatch in self.mismatch_lst:
+            print(mismatch)
+            print(mismatch[1])
+        # self.mismatch_tpos_lst = [mismatch[1] for mismatch in self.mismatch_lst]
+   
+        
 def get_sample(bam_file: str):
    
     state = 0 
@@ -54,7 +97,7 @@ def get_sample(bam_file: str):
         print(
             "samtools reheader in.header.sam in.bam > out.bam command can be used to insert a new header"
         )
-        hapmix.util.exit()
+        hapmash.util.exit()
     return sample
 
 
@@ -75,7 +118,7 @@ def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
     if len(tname_lst) == 0:
         print("@SQ header is missing from BAM file")
         print("Please use samtools reheader to insert approprirate header to your BAM file")
-        hapmix.util.exit()
+        hapmash.util.exit()
     return tname_lst, tname2tsize
 
 
@@ -94,7 +137,7 @@ def get_thresholds(
     if len(chrom_lst) == 0:
         print("target is missing")
         print("Please check .vcf file or .target file")
-        hapmix.util.exit() 
+        hapmash.util.exit() 
 
     qlen_lst = []        
     random.seed(10)
@@ -121,5 +164,5 @@ def get_thresholds(
     qlen_lower_limit = math.ceil(qlen_mean - 2 * qlen_std)
     coverage = genome_read_sum / float(genome_sample_sum)
     md_threshold = get_md_threshold(coverage)
-    return qlen_lower_limit, qlen_upper_limit, md_threshold
+    return qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold
 

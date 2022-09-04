@@ -3,17 +3,17 @@ __version__ = "0.0.1"
 __author__ = "Sangjin Lee"
 
 ## modules
-import hapmix.caller
-import hapmix.phaselib
-from hapmix.parse_args import parse_args
+import hapmash.caller
+import hapmash.phaselib
+from hapmash.parse_args import parse_args
 
 def main():
     parser, options = parse_args(program_version=__version__)
     if options.sub == "call": # return gene conversions
-        hapmix.util.check_num_threads(options.threads)
-        hapmix.caller.call_hapmix(
+        hapmash.util.check_num_threads(options.threads)
+        hapmash.caller.call_recombinantion(
             options.bam, # input # bam_file
-            options.vcf, # phased germline mutations
+            options.vcf, # deepvariant phased germline mutations
             options.region, # region 
             options.region_list, #
             options.min_mapq, # int: 0-60
@@ -25,10 +25,10 @@ def main():
             options.max_mismatch_count, # int: 0 
             options.threads, # maxminum number of threads
             __version__, # str
-            options.out, # output # hapmix vcf file
+            options.out, # output # hapmash vcf file
         )
     elif options.sub == "phase": # returns phased hetsnps
-        hapmix.phaselib.get_chrom_hblock(
+        hapmash.phaselib.get_chrom_hblock(
             options.bam, 
             options.vcf, 
             options.region, 
@@ -48,5 +48,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main(prog_name="hapmix")  # pragma: no cover
-    hapmix.util.exit()
+    main(prog_name="hapmash")  # pragma: no cover
+    hapmash.util.exit()

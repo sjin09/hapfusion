@@ -308,6 +308,7 @@ def call_hapmix(
     mismatch_window,
     max_mismatch_count: int,
     threads: int,
+    debug: bool,
     version: str,
     out_file: str,
 ) -> None:
@@ -324,7 +325,37 @@ def call_hapmix(
     qlen_lower_limit, qlen_upper_limit, md_threshold = hapmix.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     ) 
-    print("hapmix is calling crossovers and gene conversions with {} threads".format(threads))
+    if debug:
+        print("debugging gene conversion calling")
+        chrom2hapmix_lst = {}
+        chrom2hapmix_statistics = {}
+        for chrom in chrom_lst:
+            get_hapmix_molecules(
+                chrom, 
+                tname2tsize[chrom],
+                bam_file,
+                vcf_file,
+                chrom2loci_lst[chrom],
+                min_mapq,
+                min_alignment_proportion,
+                min_sequence_identity,
+                qlen_lower_limit, 
+                qlen_upper_limit, 
+                min_bq,
+                min_trim,
+                md_threshold,
+                mismatch_window,
+                max_mismatch_count,
+                chrom2hapmix_lst,
+                chrom2hapmix_statistics
+            )
+        # hapmix.vcflib.dump_recombinantion(chrom_lst, chrom2hapmix_lst, out_file)
+        # hapmix.vcflib.dump_hapmix_statistics(
+        #     chrom_lst, chrom2hapmix_statistics, "{}.stat".format(out_file)
+        # )
+        # hapmix.util.exit()
+
+    print("hapmix is calling gene conversions with {} threads".format(threads))
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2hapmix_lst = manager.dict()
@@ -360,12 +391,10 @@ def call_hapmix(
     hapmix.vcflib.dump_hapmix_statistics(
         chrom_lst, chrom2hapmix_statistics, "{}.stat".format(out_file)
     )
-    print("hapmix finished calling crossover and gene conversions")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
     print(
-        "hapmix crossover and gene conversion detection detection took {} minutes".format(
+        "hapmix single molecule gene conversion detection detection took {} minutes".format(
             duration
         )
     )
-    hapmix.util.exit()

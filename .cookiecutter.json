@@ -1,0 +1,10 @@
+{
+  "_template": "gh:sjin09/pynew",
+  "author": "Sangjin Lee",
+  "email": "sl17@sanger.ac.uk",
+  "friendly_name": "Hapmix",
+  "github_user": "sjin09",
+  "package_name": "hapmix",
+  "project_name": "hapmix",
+  "version": "0.0.1"
+}

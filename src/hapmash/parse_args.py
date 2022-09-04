@@ -21,7 +21,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser = argparse.ArgumentParser(
         add_help=True,
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter),
-        description="hapmix calls crossovers and gene conversions"
+        description="hapmash calls crossovers and gene conversions"
     )
     parser.add_argument(
         "-v",
@@ -61,7 +61,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--vcf",
         type=str,
         required=True,
-        help="deepvariant VCF file with phased germline mutations",
+        help="phased deepvariant VCF file" 
     )
     parser_call.add_argument(
         "--min_bq",
@@ -119,12 +119,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=False,
         help="maximum number of threads to be used"
     )
-    # parser_call.add_argument(
-    #     "--debug",
-    #     required=False,
-    #     action="store_true",
-    #     help="generating output for debugging purposes"
-    # )
     parser_call.add_argument(
         "-o",
         "--out",

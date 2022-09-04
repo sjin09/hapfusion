@@ -4,9 +4,9 @@ import queue
 import bisect
 import natsort
 import numpy as np
-import hapmix.cslib
-import hapmix.bamlib
-import hapmix.haplib
+import hapmash.cslib
+import hapmash.bamlib
+import hapmash.haplib
 import multiprocessing as mp
 from scipy.stats import binom_test
 from collections import defaultdict
@@ -26,7 +26,7 @@ def get_edges(
     edge2counts = defaultdict(lambda: np.zeros(4))
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for line in alignments.fetch(chrom):
-        read = hapmix.bamlib.BAM(line)
+        read = hapmash.bamlib.BAM(line)
         if read.mapq < min_mapq:
             continue
         _idx = bisect.bisect_right(hpos_lst, read.tstart)
@@ -36,8 +36,8 @@ def get_edges(
         elif _jdx - _idx == 1:
             continue
 
-        hapmix.cslib.cs2tuple(read)
-        hapmix.cslib.cs2tpos2qbase(read)
+        hapmash.cslib.cs2tuple(read)
+        hapmash.cslib.cs2tpos2qbase(read)
         hetsnp_subset_lst = [hetsnp_lst[_kdx] for _kdx in range(_idx, _jdx)]
         for idx, snpidx in enumerate(hetsnp_subset_lst):
             i = hetsnp2hidx[snpidx]
@@ -243,7 +243,7 @@ def get_hblock(
 ) -> List[List[Tuple[int, Tuple[int, int]]]]:
 
     print("starting edge collection")
-    hetsnp_lst, _, hetsnp2hidx = hapmix.vcflib.load_hetsnps(vcf_file, chrom, chrom_len)
+    hetsnp_lst, _, hetsnp2hidx = hapmash.vcflib.load_hetsnps(vcf_file, chrom, chrom_len)
     hpos_lst = [hetsnp[1] for hetsnp in hetsnp_lst]
     edge_lst, edge2counts = get_edges(
         chrom, 
@@ -276,12 +276,12 @@ def get_chrom_hblock(
     Dict[str, List[List[Tuple[int, int]]]], Dict[str, Tuple[int, int, int, int, int]]
 ]:
     cpu_start = time.time() / 60
-    hapmix.util.check_num_threads(threads) 
-    hapmix.util.check_phaser_input_exists(bam_file, vcf_file, out_file) 
-    _, tname2tsize = hapmix.bamlib.get_tname2tsize(bam_file)
-    chrom_lst, _ = hapmix.util.load_loci(region, region_lst, tname2tsize)
+    hapmash.util.check_num_threads(threads) 
+    hapmash.util.check_phaser_input_exists(bam_file, vcf_file, out_file) 
+    _, tname2tsize = hapmash.bamlib.get_tname2tsize(bam_file)
+    chrom_lst, _ = hapmash.util.load_loci(region, region_lst, tname2tsize)
 
-    print("hapmix is phasing hetsnps with {} threads".format(threads))
+    print("hapmash is phasing hetsnps with {} threads".format(threads))
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2hblock_lst = manager.dict()
@@ -303,9 +303,9 @@ def get_chrom_hblock(
     p.starmap(get_hblock, get_hblock_arg_lst)
     p.close()
     p.join()
-    print("hapmix finished phasing hetsnps")
-    print("hapmix is returning haplotype phased hetsnps")
-    hapmix.vcflib.dump_phased_hetsnps( 
+    print("hapmash finished phasing hetsnps")
+    print("hapmash is returning haplotype phased hetsnps")
+    hapmash.vcflib.dump_phased_hetsnps( 
         bam_file,
         vcf_file,
         min_qual,
@@ -315,12 +315,12 @@ def get_chrom_hblock(
         version,
         out_file,
     )
-    hapmix.vcflib.dump_hblock_statistics(
+    hapmash.vcflib.dump_hblock_statistics(
         chrom_lst, 
         chrom2hblock_statistics, 
         out_file.replace(".vcf", ".log")
     )
-    print("hapmix finished returning haplotype phased hetsnps")    
+    print("hapmash finished returning haplotype phased hetsnps")    
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
     print(
@@ -328,4 +328,4 @@ def get_chrom_hblock(
             duration
         )
     )
-    hapmix.util.exit()
+    hapmash.util.exit()
