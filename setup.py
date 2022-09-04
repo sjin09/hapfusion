@@ -49,7 +49,7 @@ setup(
     ],
     extras_require={
         "dev": [
-            "black==20.*,>=20.8.0.b1", "coverage[toml]==5.*,>=5.3.0",
+            "black==20.*,>=20.8.0.b1", "coverage[toml]>=5,<7",
             "darglint==1.*,>=1.5.8", "flake8==3.*,>=3.8.4",
             "flake8-bandit==2.*,>=2.1.2", "flake8-bugbear==20.*,>=20.1.4",
             "flake8-docstrings==1.*,>=1.5.0",
