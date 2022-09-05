@@ -4,9 +4,9 @@ import tabix
 import cyvcf2
 import natsort
 import numpy as np 
-import hapmash.util
-import hapmash.bamlib
-import hapmash.phaselib
+import hapsmash.util
+import hapsmash.bamlib
+import hapsmash.phaselib
 from datetime import datetime
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
@@ -63,7 +63,7 @@ def get_sample(vcf_file: str) -> str:
         return sample
 
 
-def get_hapmash_vcf_header(
+def get_hapsmash_vcf_header(
     version: str,
     bam_file: str,
 ) -> str:
@@ -72,9 +72,9 @@ def get_hapmash_vcf_header(
         "##fileformat=VCFv4.2",
         '##FILTER=<ID=PASS,Description="All filters passed">',
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
-        "##source=hapmash",
+        "##source=hapsmash",
         "##source_version={}".format(version),
-        '##content=hapmash gene conversions',
+        '##content=hapsmash gene conversions',
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=BQ,Number=1,Type=Integer,Description="Average base quality">',
         '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">',
@@ -82,12 +82,12 @@ def get_hapmash_vcf_header(
         '##FORMAT=<ID=VAF,Number=A,Type=Float,Description="Variant allele fractions">',
         '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
     ]
-    tname2tsize = hapmash.bamlib.get_tname2tsize(bam_file)
+    tname2tsize = hapsmash.bamlib.get_tname2tsize(bam_file)
     tname_lst = natsort.natsorted(tname2tsize.keys())
     for tname in tname_lst:
         vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapmash.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapsmash.bamlib.get_sample(bam_file))
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
@@ -102,7 +102,7 @@ def get_phased_vcf_header(
         "##fileformat=VCFv4.2",
         '##FILTER=<ID=PASS,Description="All filters passed">',
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
-        "##source=hapmash",
+        "##source=hapsmash",
         "##source_version={}".format(version),
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Conditional genotype quality">',
@@ -113,12 +113,12 @@ def get_phased_vcf_header(
         '##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods rounded to the closest integer">',
         '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
     ]
-    tname_lst, tname2tsize = hapmash.bamlib.get_tname2tsize(bam_file)
+    tname_lst, tname2tsize = hapsmash.bamlib.get_tname2tsize(bam_file)
     for tname in tname_lst:
         vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
 
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapmash.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapsmash.bamlib.get_sample(bam_file))
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
@@ -129,22 +129,28 @@ def load_snp_indel(
     vcf_file: str
 ) -> Set[Tuple[str, int, str, str]]:
 
-    homsnp_set = set()
-    homindel_set = set()
-    hetindel_set = set()
+    hetset = set()
+    homset = set()
+    hetpos_set = set()
+    hompos_set = set()
+    pos2allele = dict()
     for line in open(vcf_file):
         if line.startswith("#"):
             continue
         v = VCF(line)
         if v.chrom != chrom:
             continue
-        if v.is_pass and v.is_snp and v.is_biallelic and v.sample_gt == "1/1":
-            homsnp_set.add((v.chrom, v.pos, v.ref, v.alt))
-        elif v.is_pass and v.is_indel and v.is_biallelic and v.sample_gt == "0/1":
-            hetindel_set.add((v.chrom, v.pos, v.ref, v.alt))
-        elif v.is_pass and v.is_indel and v.is_biallelic and v.sample_gt == "1/1":
-            homindel_set.add((v.chrom, v.pos, v.ref, v.alt))
-    return homsnp_set, hetindel_set, homindel_set
+        elif v.is_pass and v.is_biallelic and v.sample_gt == "0/1":
+            if v.is_indel:
+                hetpos_set.add(v.pos)
+                pos2allele[v.pos] = [v.ref, v.alt]
+            hetset.add((v.pos, v.ref, v.alt))
+        elif v.is_pass and v.is_biallelic and v.sample_gt == "1/1":
+            if v.is_indel:
+                hompos_set.add(v.pos)
+                pos2allele[v.pos] = [v.ref, v.alt]
+            homset.add((v.pos, v.ref, v.alt))
+    return hetset, homset, hetpos_set, hompos_set, pos2allele
       
                      
 def load_bgz_snp_indel(
@@ -152,25 +158,26 @@ def load_bgz_snp_indel(
     vcf_file: str
 ) -> Set[Tuple[str, int, str, str]]:
 
-    het_set = set()
-    hom_set = set()
+    hetset = set()
+    homset = set()
+    hetpos_set = set()
+    hompos_set = set()
+    pos2allele = dict()
     tb = tabix.open(vcf_file)
     records = tb.query(*loci)
     for record in records:
         v = VCF("\t".join(record))            
-        # if v.is_pass and v.is_snp and v.is_biallelic and v.sample_gt == "0/1":
-        #     het_set.add((v.chrom, v.pos, v.ref, v.alt))
-        # elif v.is_pass and v.is_snp and v.is_biallelic and v.sample_gt == "1/1":
-        #     hom_set.add((v.chrom, v.pos, v.ref, v.alt))
-        # elif v.is_pass and v.is_indel and v.is_biallelic and v.sample_gt == "0/1":
-        #     het_set.add((v.chrom, v.pos, v.ref, v.alt))
-        # elif v.is_pass and v.is_indel and v.is_biallelic and v.sample_gt == "1/1":
-        #     hom_set.add((v.chrom, v.pos, v.ref, v.alt))
         if v.is_pass and v.is_biallelic and v.sample_gt == "0/1":
-            het_set.add((v.chrom, v.pos, v.ref, v.alt))
+            if v.is_indel:
+                hetpos_set.add(v.pos)
+                pos2allele[v.pos] = [v.ref, v.alt]
+            hetset.add((v.pos, v.ref, v.alt))
         elif v.is_pass and v.is_biallelic and v.sample_gt == "1/1":
-            hom_set.add((v.chrom, v.pos, v.ref, v.alt))
-    return het_set, hom_set, 
+            if v.is_indel:
+                hompos_set.add(v.pos)
+                pos2allele[v.pos] = [v.ref, v.alt]
+            homset.add((v.pos, v.ref, v.alt))
+    return hetset, homset, hetpos_set, hompos_set
 
 
 def load_sbs(
@@ -186,7 +193,7 @@ def load_sbs(
         if v.chrom != chrom:
             continue
         if v.is_pass and v.is_snp and v.is_biallelic:
-            sbs_set.add((v.chrom, v.pos, v.ref, v.alt))
+            sbs_set.add((v.pos, v.ref, v.alt))
     return sbs_set 
       
                      
@@ -201,7 +208,7 @@ def load_bgz_sbs(
     for record in records:
         v = VCF("\t".join(record))            
         if v.is_pass and v.is_snp and v.is_biallelic:
-            sbs_set.add((v.chrom, v.pos, v.ref, v.alt))
+            sbs_set.add((v.pos, v.ref, v.alt))
     return sbs_set
 
 
@@ -219,8 +226,9 @@ def load_hetsnps(
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
-                hetsnp_lst.append((v.chrom, v.pos, v.ref, v.alt))
+            if chrom == v.chrom: 
+                if v.is_snp and v.is_pass and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
+                    hetsnp_lst.append((v.chrom, v.pos, v.ref, v.alt))
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         records = tb.query(chrom, 0, chrom_len)
@@ -251,37 +259,27 @@ def load_haplotype_block(
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if chrom != v.chrom:
-                if state == 0:
-                    continue
-                elif state == 1:
-                    break
-            elif chrom == v.chrom: 
-                if state == 0:
-                    state = 1
-                if v.is_pass:
-                    if v.is_snp and v.is_biallelic:
-                        snp = (v.chrom, v.pos, v.ref, v.alt)
-                        if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                            hidx2hetsnp[hidx] = snp
-                            hetsnp2hidx[snp] = hidx
-                            hstate = v.sample_gt.split("|")[0]                    
-                            phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
-                            hidx += 1 
+            if chrom == v.chrom and v.is_snp and v.is_pass and v.is_biallelic:
+                snp = (v.chrom, v.pos, v.ref, v.alt)
+                if v.sample_gt == "0|1" or v.sample_gt == "1|0":
+                    hidx2hetsnp[hidx] = snp
+                    hetsnp2hidx[snp] = hidx
+                    hstate = v.sample_gt.split("|")[0]                    
+                    phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
+                    hidx += 1 
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         records = tb.query(chrom, 0, chrom_len)
         for record in records:
             v = VCF("\t".join(record)) 
-            if v.is_pass:
-                if v.is_snp and v.is_biallelic:
-                    snp = (v.chrom, v.pos, v.ref, v.alt)
-                    if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                        hidx2hetsnp[hidx] = snp
-                        hetsnp2hidx[snp] = hidx
-                        hstate = v.sample_gt.split("|")[0]                    
-                        phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
-                        hidx += 1 
+            if v.is_snp and v.is_pass and v.is_biallelic:
+                snp = (v.chrom, v.pos, v.ref, v.alt)
+                if v.sample_gt == "0|1" or v.sample_gt == "1|0":
+                    hidx2hetsnp[hidx] = snp
+                    hetsnp2hidx[snp] = hidx
+                    hstate = v.sample_gt.split("|")[0]                    
+                    phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
+                    hidx += 1 
     hblock_lst = [hblock for hblock in phase_set2hblock.values()]
     return hblock_lst, hidx2hetsnp, hetsnp2hidx
 
@@ -293,7 +291,6 @@ def get_phased_hetsnps(
 ):
     
     hidx = 0  
-    state = 0
     hidx2hetsnp = {}
     hetsnp2hidx = {}
     hblock_lst = defaultdict(list)
@@ -303,37 +300,27 @@ def get_phased_hetsnps(
             if line.startswith("#"):
                 continue
             v = VCF(line)
-            if chrom != v.chrom:
-                if state == 0:
-                    continue
-                elif state == 1:
-                    break
-            elif chrom == v.chrom: 
-                if state == 0:
-                    state = 1
-                if v.is_pass:
-                    if v.is_snp and v.is_biallelic:
-                        snp = (v.chrom, v.pos, v.ref, v.alt)
-                        if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                            hidx2hetsnp[hidx] = snp
-                            hetsnp2hidx[snp] = hidx
-                            hstate = v.sample_gt.split("|")[0]                    
-                            phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
-                            hidx += 1 
+            if chrom == v.chrom and v.is_snp and v.is_pass and v.is_biallelic:
+                snp = (v.pos, v.ref, v.alt)
+                if v.sample_gt == "0|1" or v.sample_gt == "1|0":
+                    hidx2hetsnp[hidx] = snp
+                    hetsnp2hidx[snp] = hidx
+                    hstate = v.sample_gt.split("|")[0]                    
+                    phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
+                    hidx += 1 
     elif vcf_file.endswith(".bgz"):
         tb = tabix.open(vcf_file)
         records = tb.query(chrom, 0, chrom_len)
         for record in records:
             v = VCF("\t".join(record)) 
-            if v.is_pass:
-                if v.is_snp and v.is_biallelic:
-                    snp = (v.chrom, v.pos, v.ref, v.alt)
-                    if v.sample_gt == "0|1" or v.sample_gt == "1|0":
-                        hidx2hetsnp[hidx] = snp
-                        hetsnp2hidx[snp] = hidx
-                        hstate = v.sample_gt.split("|")[0]                    
-                        phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
-                        hidx += 1 
+            if v.is_snp and v.is_pass and v.is_biallelic:
+                snp = (v.pos, v.ref, v.alt)
+                if v.sample_gt == "0|1" or v.sample_gt == "1|0":
+                    hidx2hetsnp[hidx] = snp
+                    hetsnp2hidx[snp] = hidx
+                    hstate = v.sample_gt.split("|")[0]                    
+                    phase_set2hblock[v.sample_phase_set].append((hidx, hstate))
+                    hidx += 1 
     hblock_lst = [hblock for hblock in phase_set2hblock.values()]
 
     hetsnp2bidx = {}
@@ -343,7 +330,7 @@ def get_phased_hetsnps(
         ipos = 0
         filtered_hblock = []
         for (hidx, hstate) in hblock:
-            jpos = hidx2hetsnp[hidx][1]
+            jpos = hidx2hetsnp[hidx][0]
             if jpos - ipos > 1:
                 filtered_hblock.append((hidx, hstate))
             ipos = jpos
@@ -362,7 +349,7 @@ def get_phased_hetsnps(
             hetsnp2hstate[hetsnp] = hstate
             phased_hetsnp_lst.append(hetsnp)
     phased_hetsnp_set = set(natsort.natsorted(phased_hetsnp_lst))
-    phased_hpos_lst = [hetsnp[1] for hetsnp in phased_hetsnp_lst]
+    phased_hpos_lst = [hetsnp[0] for hetsnp in phased_hetsnp_lst]
     return phased_hpos_lst, phased_hetsnp_lst, phased_hetsnp_set, filtered_hblock_lst, hidx2bidx, hidx2hstate, hidx2hetsnp, hetsnp2bidx, hetsnp2hidx, hetsnp2hstate
 
 
@@ -411,7 +398,7 @@ def dump_phased_hetsnps(
                 hetsnp2phase_set[phased_hetsnp] = phase_set 
     
     o = open(out_file, "w") # return phased hetsnps and germline mutations
-    o.write("{}\n".format(hapmash.vcflib.get_phased_vcf_header(bam_file, version))) 
+    o.write("{}\n".format(hapsmash.vcflib.get_phased_vcf_header(bam_file, version))) 
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
@@ -489,13 +476,13 @@ def dump_hblock_statistics(
 
 def dump_recombinantion(
     chrom_lst: List[str], 
-    chrom2hapmash_lst: List[str],
+    chrom2hapsmash_lst: List[str],
     out_file: str
 ):
     o = open(out_file, "w")
     for chrom in chrom_lst:
-        for (ccs, ccs_haplotype, hapmash_hetsnp_lst, wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit) in chrom2hapmash_lst[chrom]:
-            o.write("{}:{}\t{}\t{}\n\n{}\n{}\n{}\n{}\n\n".format(ccs, ccs_haplotype, ",".join(hapmash_hetsnp_lst), wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit))
+        for (ccs, ccs_haplotype, hapsmash_hetsnp_lst, wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit) in chrom2hapsmash_lst[chrom]:
+            o.write("{}:{}\t{}\t{}\n\n{}\n{}\n{}\n{}\n\n".format(ccs, ccs_haplotype, ",".join(hapsmash_hetsnp_lst), wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit))
     o.close()
 
 
@@ -514,9 +501,9 @@ def dump_hetsnp_statistics(
     o.close()
                 
 
-def dump_recombinantion_statistics(
+def dump_recombination_statistics(
     chrom_lst: List[str], 
-    chrom2hapmash_statistics: Dict[str, List[int]],
+    chrom2hapsmash_statistics: Dict[str, List[int]],
     out_file: str
 ):
     
@@ -536,7 +523,7 @@ def dump_recombinantion_statistics(
     nrow = len(row_names)
     dt = np.zeros((nrow, ncol))
     for idx, chrom in enumerate(chrom_lst):
-        for jdx, count in enumerate(chrom2hapmash_statistics[chrom]): 
+        for jdx, count in enumerate(chrom2hapsmash_statistics[chrom]): 
             dt[jdx][idx] = count
     
     o = open(out_file, "w")

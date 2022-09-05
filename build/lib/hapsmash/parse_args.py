@@ -21,7 +21,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser = argparse.ArgumentParser(
         add_help=True,
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter),
-        description="hapmash calls crossovers and gene conversions"
+        description="hapsmash calls crossovers and gene conversions"
     )
     parser.add_argument(
         "-v",

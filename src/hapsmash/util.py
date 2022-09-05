@@ -21,7 +21,7 @@ class NestedDefaultDict(defaultdict):
 
 
 def exit():
-    print("exiting hapmash")
+    print("exiting hapsmash")
     sys.exit(0)
 
 
@@ -132,7 +132,7 @@ def check_vcf_file(vcf_file: str):
                     print("tabix index file does not exist")
                     return 1
             elif vcf_file.endswith(".gz"):
-                print("hapmash doesn't support loading of gzip compressed VCF files") 
+                print("hapsmash doesn't support loading of gzip compressed VCF files") 
                 return 1
             else:
                 print("VCF file must have the .vcf suffix")
@@ -166,13 +166,13 @@ def check_out_file(out_file: str):
     if out_file.endswith(".vcf"):
         return 0 
     elif out_file.endswith(".gz"):
-        print("hapmash doesn't support return gzip compressed VCF files") 
+        print("hapsmash doesn't support return gzip compressed VCF files") 
         return 1
     elif out_file.endswith(".bgz"):
-        print("hapmash doesn't support return bgzip compressed VCF files") 
+        print("hapsmash doesn't support return bgzip compressed VCF files") 
         return 1
     else:
-        print("hapmash doesn't recgonise the suffix of the file")
+        print("hapsmash doesn't recgonise the suffix of the file")
         return 1
 
     
@@ -207,8 +207,8 @@ def check_phaser_input_exists(
     counter += check_bam_file(bam_file)
     counter += check_vcf_file(vcf_file)
     counter += check_out_file(out_file)
-    if not out_file.endswith(".phased.vcf"):
-        print("Please use the suffix .phased.vcf for the output file")
+    if not out_file.endswith(".vcf"):
+        print("Please use the suffix .vcf for the output file")
         counter += 1
 
     if counter > 0:
@@ -284,11 +284,5 @@ def update_allelecounts(
             tpos += ref_len
             qpos += alt_len
     # else:
-    #     return hapmash.cslib.cs2tpos2qbase(ccs)
+    #     return hapsmash.cslib.cs2tpos2qbase(ccs)
 
-## >>> from PIL import Image
-## >>> from PIL import Image, ImageDraw
-## >>> im = Image.new('RGBA', (100, 100), (0, 0, 0, 0))
-## >>> draw = ImageDraw.Draw(im)
-## >>> draw.rectangle((10, 10, 90, 90), fill="yellow", outline="red")
-## >>> draw.save("out.png")

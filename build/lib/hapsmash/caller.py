@@ -6,11 +6,11 @@ import pysam
 import bisect
 import natsort
 import numpy as np
-import hapmash.util
-import hapmash.cslib
-import hapmash.bamlib
-import hapmash.haplib
-import hapmash.vcflib
+import hapsmash.util
+import hapsmash.cslib
+import hapsmash.bamlib
+import hapsmash.haplib
+import hapsmash.vcflib
 import multiprocessing as mp
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -57,7 +57,7 @@ def get_recombination(
     m = METRICS()
     alignments = pysam.AlignmentFile(bam_file, "rb")
     if os.path.exists(vcf_file) and vcf_file.endswith(".vcf"):
-        hetset, homset, hetpos_set, hompos_set, pos2allele = hapmash.vcflib.load_snp_indel(chrom, vcf_file)
+        hetset, homset, hetpos_set, hompos_set, pos2allele = hapsmash.vcflib.load_snp_indel(chrom, vcf_file)
 
     (
         phased_hpos_lst,
@@ -70,31 +70,31 @@ def get_recombination(
         hetsnp2bidx,
         hetsnp2hidx,
         hetsnp2hstate,
-    ) = hapmash.vcflib.get_phased_hetsnps(vcf_file, chrom, chrom_len)
+    ) = hapsmash.vcflib.get_phased_hetsnps(vcf_file, chrom, chrom_len)
     del hidx2bidx
     del hblock_lst
     del hidx2hstate
     del hetsnp2hidx
     del hidx2hetsnp
 
-    hapmash_lst = []
-    # hapmash_ccs_lst = []
-    # hapmash2coord = defaultdict(list)
+    hapsmash_lst = []
+    # hapsmash_ccs_lst = []
+    # hapsmash2coord = defaultdict(list)
     # hetsnp2cnt = defaultdict(lambda: 0)
     seen = set()
     for loci in loci_lst:
-        chunkloci_lst = hapmash.util.chunkloci(loci)
+        chunkloci_lst = hapsmash.util.chunkloci(loci)
         for chunkloci in chunkloci_lst:
             chunk_start, chunk_end = chunkloci[1:]
             allelecounts = defaultdict(lambda: np.zeros(6))
             if vcf_file.endswith(".bgz"):
-                hetset, homset, hetpos_set, hompos_set, pos2allele = hapmash.vcflib.load_bgz_snp_indel((chrom, chunk_start - qlen_mean, chunk_end + qlen_mean), vcf_file)
+                hetset, homset, hetpos_set, hompos_set, pos2allele = hapsmash.vcflib.load_bgz_snp_indel((chrom, chunk_start - qlen_mean, chunk_end + qlen_mean), vcf_file)
            
             for i in alignments.fetch(*chunkloci):
             # for line in alignments.fetch(*chunkloci):
                 m.ccs += 1
-                ccs = hapmash.bamlib.BAM(i)
-                hapmash.util.update_allelecounts(ccs, allelecounts)
+                ccs = hapsmash.bamlib.BAM(i)
+                hapsmash.util.update_allelecounts(ccs, allelecounts)
                 if not ccs.is_primary: 
                     m.lq_ccs += 1
                     continue
@@ -111,7 +111,7 @@ def get_recombination(
                     m.lq_ccs += 1
                     continue
                 
-                if hapmash.util.get_blast_sequence_identity(ccs) < min_sequence_identity:
+                if hapsmash.util.get_blast_sequence_identity(ccs) < min_sequence_identity:
                     m.lq_ccs += 1
                     continue
                 
@@ -126,7 +126,7 @@ def get_recombination(
                 else: 
                     m.phaseable_hq_ccs += 1 
                     
-                ccs_hbit_lst, h0_hbit_lst, h1_hbit_lst, phased_hetsnp_subset_lst = hapmash.haplib.get_ccs_hbit_lst(
+                ccs_hbit_lst, h0_hbit_lst, h1_hbit_lst, phased_hetsnp_subset_lst = hapsmash.haplib.get_ccs_hbit_lst(
                     ccs,
                     hetsnp2bidx,
                     hetsnp2hstate,
@@ -145,15 +145,15 @@ def get_recombination(
                     continue 
 
                 m.hap_inconsistent_hq_ccs += 1
-                ccs.hap = hapmash.haplib.get_ccs_haplotype(h0_hbit_lst, ccs_hbit_lst) 
-                ccs_hapmash_hetsnp_candidate_lst = hapmash.haplib.get_hapswitch_hetsnps(ccs.hap, h0_hbit_lst, ccs_hbit_lst, phased_hetsnp_subset_lst) # search candidate 
-                if len(ccs_hapmash_hetsnp_candidate_lst) == 0: ## hetsnp is deleted ## is this the result of MMR or sequencing error?
+                ccs.hap = hapsmash.haplib.get_ccs_haplotype(h0_hbit_lst, ccs_hbit_lst) 
+                ccs_hapsmash_hetsnp_candidate_lst = hapsmash.haplib.get_hapsmash_hetsnps(ccs.hap, h0_hbit_lst, ccs_hbit_lst, phased_hetsnp_subset_lst) # search candidate 
+                if len(ccs_hapsmash_hetsnp_candidate_lst) == 0: ## hetsnp is deleted ## is this the result of MMR or sequencing error?
                     continue
                    
-                ccs_hapmash_hetsnp_lst = []
+                ccs_hapsmash_hetsnp_lst = []
                 trimmed_qstart = math.floor(min_trim * ccs.qlen)
                 trimmed_qend = math.ceil((1 - min_trim) * ccs.qlen)
-                for (tpos, ref, alt) in ccs_hapmash_hetsnp_candidate_lst:
+                for (tpos, ref, alt) in ccs_hapsmash_hetsnp_candidate_lst:
                     
                     qpos = ccs.tpos2qpos[tpos]
                     _, qbq = ccs.tpos2qbase[tpos]
@@ -165,7 +165,7 @@ def get_recombination(
                     if qpos > trimmed_qend:
                         continue
 
-                    mismatch_start, mismatch_end = hapmash.util.get_mismatch_range(tpos, qpos, ccs.qlen, mismatch_window)
+                    mismatch_start, mismatch_end = hapsmash.util.get_mismatch_range(tpos, qpos, ccs.qlen, mismatch_window)
                     jdx = bisect.bisect_left(ccs.mismatch_tpos_lst, mismatch_start)
                     kdx = bisect.bisect_right(ccs.mismatch_tpos_lst, mismatch_end)
                     mismatch_count = kdx - jdx 
@@ -181,25 +181,25 @@ def get_recombination(
                     if total_count > md_threshold:
                         continue
                     
-                    ccs_hapmash_hetsnp_lst.append((tpos, ref, alt))
+                    ccs_hapsmash_hetsnp_lst.append((tpos, ref, alt))
 
-                if ccs_hapmash_hetsnp_lst != 0:
+                if ccs_hapsmash_hetsnp_lst != 0:
                     if ccs.qname in seen:
                         continue
                     
                     seen.add(ccs.qname)
                     tend_lst = []
                     tstart_lst = []
-                    hapmash_ccs_lst = [] 
-                    hapmash_region_lst = []
+                    hapsmash_ccs_lst = [] 
+                    hapsmash_region_lst = []
                     print("{}:{}-{}".format(ccs.tname, ccs.tstart, ccs.tend)) 
                     for j in alignments.fetch(ccs.tname, ccs.tstart, ccs.tend):
-                        read = hapmash.bamlib.BAM(j)
+                        read = hapsmash.bamlib.BAM(j)
                         # print(read.qname)
                         if read.is_primary and read.mapq >= min_mapq: 
-                            hapmash.cslib.cs2tpos2qbase(read)
+                            hapsmash.cslib.cs2tpos2qbase(read)
                             read.load_mutations(hetset, homset, hetpos_set, hompos_set, phased_hetsnp_set, pos2allele) 
-                            read_hbit_lst, h0_hbit_lst, h1_hbit_lst, phased_hetsnp_subset_lst = hapmash.haplib.get_ccs_hbit_lst(
+                            read_hbit_lst, h0_hbit_lst, h1_hbit_lst, phased_hetsnp_subset_lst = hapsmash.haplib.get_ccs_hbit_lst(
                                 read,
                                 hetsnp2bidx,
                                 hetsnp2hstate,
@@ -207,13 +207,17 @@ def get_recombination(
                                 phased_hetsnp_lst,
                             )
                             # if len(phased_hetsnp_lst)
-                            read.hap = hapmash.haplib.get_ccs_haplotype(h0_hbit_lst, read_hbit_lst) 
+                            read.hap = hapsmash.haplib.get_ccs_haplotype(h0_hbit_lst, read_hbit_lst) 
                             if len(read_hbit_lst) == 0: # read belongs to more than one haplotype block
                                 continue 
                             if read_hbit_lst == h0_hbit_lst: 
                                 continue
                             elif read_hbit_lst == h1_hbit_lst: 
                                 continue 
+                            read_hapsmash_hetsnp_candidate_lst = hapsmash.haplib.get_hapswitch_hetsnps(read.hap, h0_hbit_lst, read_hbit_lst, phased_hetsnp_subset_lst) 
+                            
+
+                            
                             print("{}:{}\t{}:{}-{}".format(read.qname, read.hap, read.tname, read.tstart, read.tend))
                             print(h0_hbit_lst)
                             print(h1_hbit_lst)
@@ -223,14 +227,14 @@ def get_recombination(
                         # print(read.qname, read.is_primary, read.mapq, read.qlen, qlen_lower_limit, qlen_upper_limit)
                         # tend_lst.append(ccs.tend)
                         # tstart_lst.append(ccs.tstart)
-                    # hapmash_ccs_lst.append((ccs.qname, ccs.tstart, ccs.tend))
+                    # hapsmash_ccs_lst.append((ccs.qname, ccs.tstart, ccs.tend))
                         # tend_lst.append(ccs.tend)
 
                     # hetsnp2cnt[tpos, ref, alt] += 1
-                    # hapmash_ccs[tpos, ref, alt].append([ccs.tstart, ccs.tend])
+                    # hapsmash_ccs[tpos, ref, alt].append([ccs.tstart, ccs.tend])
                     # ccs_hapswitch_hetsnp_lst.append((chrom, tpos, ref, alt))
    
-    # for (ccs.qname, ccs.tstart, ccs.tend) in hapmash_ccs_lst:
+    # for (ccs.qname, ccs.tstart, ccs.tend) in hapsmash_ccs_lst:
     #     if ccs.qname in seen:
     #         continue
         ## select all CCS reads 
@@ -242,7 +246,7 @@ def get_recombination(
         ## determine cosnensus h1_hbit
          
         
-        # coord_lst = hapmash2coord[(tpos, ref, alt)]
+        # coord_lst = hapsmash2coord[(tpos, ref, alt)]
         # if len(coord_lst) == 1:
         #     start = coord_lst[0][0]
         #     end = coord_lst[0][1]
@@ -257,9 +261,9 @@ def get_recombination(
 
             
         # for line in alignments.fetch(*(chrom, start, end)):
-            # ccs = hapmash.bamlib.BAM(line)
+            # ccs = hapsmash.bamlib.BAM(line)
 
-    chrom2recombination_lst[chrom] = hapmash_lst 
+    chrom2recombination_lst[chrom] = hapsmash_lst 
     chrom2recombination_statistics[chrom] = [
         m.ccs,
         m.lq_ccs,
@@ -293,18 +297,18 @@ def call_recombinantion(
 ) -> None:
 
     cpu_start = time.time() / 60
-    hapmash.util.check_caller_input_exists(
+    hapsmash.util.check_caller_input_exists(
         bam_file,
         vcf_file,
         region,
         region_lst,
     )
-    _, tname2tsize = hapmash.bamlib.get_tname2tsize(bam_file)
-    chrom_lst, chrom2loci_lst = hapmash.util.load_loci(region, region_lst, tname2tsize)
-    qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold = hapmash.bamlib.get_thresholds(
+    _, tname2tsize = hapsmash.bamlib.get_tname2tsize(bam_file)
+    chrom_lst, chrom2loci_lst = hapsmash.util.load_loci(region, region_lst, tname2tsize)
+    qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold = hapsmash.bamlib.get_thresholds(
         bam_file, chrom_lst, tname2tsize
     ) 
-    print("hapmash is calling crossovers and gene conversions with {} threads".format(threads))
+    print("hapsmash is calling crossovers and gene conversions with {} threads".format(threads))
     p = mp.Pool(threads)
     manager = mp.Manager()
     chrom2recombination_lst = manager.dict()
@@ -337,16 +341,16 @@ def call_recombinantion(
     )
     p.close()
     p.join()
-    hapmash.vcflib.dump_recombinantion(chrom_lst, chrom2recombination_lst, out_file)
-    hapmash.vcflib.dump_recombination_statistics(
+    hapsmash.vcflib.dump_recombinantion(chrom_lst, chrom2recombination_lst, out_file)
+    hapsmash.vcflib.dump_recombination_statistics(
         chrom_lst, chrom2recombination_statistics, "{}.stat".format(out_file)
     )
-    print("hapmash finished calling crossover and gene conversions")
+    print("hapsmash finished calling crossover and gene conversions")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start
     print(
-        "hapmash crossover and gene conversion detection detection took {} minutes".format(
+        "hapsmash crossover and gene conversion detection detection took {} minutes".format(
             duration
         )
     )
-    hapmash.util.exit()
+    hapsmash.util.exit()

@@ -4,9 +4,9 @@ import tabix
 import cyvcf2
 import natsort
 import numpy as np 
-import hapmash.util
-import hapmash.bamlib
-import hapmash.phaselib
+import hapsmash.util
+import hapsmash.bamlib
+import hapsmash.phaselib
 from datetime import datetime
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
@@ -63,7 +63,7 @@ def get_sample(vcf_file: str) -> str:
         return sample
 
 
-def get_hapmash_vcf_header(
+def get_hapsmash_vcf_header(
     version: str,
     bam_file: str,
 ) -> str:
@@ -72,9 +72,9 @@ def get_hapmash_vcf_header(
         "##fileformat=VCFv4.2",
         '##FILTER=<ID=PASS,Description="All filters passed">',
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
-        "##source=hapmash",
+        "##source=hapsmash",
         "##source_version={}".format(version),
-        '##content=hapmash gene conversions',
+        '##content=hapsmash gene conversions',
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=BQ,Number=1,Type=Integer,Description="Average base quality">',
         '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">',
@@ -82,12 +82,12 @@ def get_hapmash_vcf_header(
         '##FORMAT=<ID=VAF,Number=A,Type=Float,Description="Variant allele fractions">',
         '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
     ]
-    tname2tsize = hapmash.bamlib.get_tname2tsize(bam_file)
+    tname2tsize = hapsmash.bamlib.get_tname2tsize(bam_file)
     tname_lst = natsort.natsorted(tname2tsize.keys())
     for tname in tname_lst:
         vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapmash.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapsmash.bamlib.get_sample(bam_file))
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
@@ -102,7 +102,7 @@ def get_phased_vcf_header(
         "##fileformat=VCFv4.2",
         '##FILTER=<ID=PASS,Description="All filters passed">',
         "##fileDate={}".format(datetime.now().strftime("%d%m%Y")),
-        "##source=hapmash",
+        "##source=hapsmash",
         "##source_version={}".format(version),
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
         '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Conditional genotype quality">',
@@ -113,12 +113,12 @@ def get_phased_vcf_header(
         '##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype likelihoods rounded to the closest integer">',
         '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">',
     ]
-    tname_lst, tname2tsize = hapmash.bamlib.get_tname2tsize(bam_file)
+    tname_lst, tname2tsize = hapsmash.bamlib.get_tname2tsize(bam_file)
     for tname in tname_lst:
         vcf_header_lst.append("##contig=<ID={},length={}>".format(tname, tname2tsize[tname]))
 
     vcf_header_lst.append(
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapmash.bamlib.get_sample(bam_file))
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(hapsmash.bamlib.get_sample(bam_file))
     )
     vcf_header = "\n".join(vcf_header_lst)
     return vcf_header
@@ -398,7 +398,7 @@ def dump_phased_hetsnps(
                 hetsnp2phase_set[phased_hetsnp] = phase_set 
     
     o = open(out_file, "w") # return phased hetsnps and germline mutations
-    o.write("{}\n".format(hapmash.vcflib.get_phased_vcf_header(bam_file, version))) 
+    o.write("{}\n".format(hapsmash.vcflib.get_phased_vcf_header(bam_file, version))) 
     if vcf_file.endswith(".vcf"):
         for line in open(vcf_file):
             if line.startswith("#"):
@@ -476,13 +476,13 @@ def dump_hblock_statistics(
 
 def dump_recombinantion(
     chrom_lst: List[str], 
-    chrom2hapmash_lst: List[str],
+    chrom2hapsmash_lst: List[str],
     out_file: str
 ):
     o = open(out_file, "w")
     for chrom in chrom_lst:
-        for (ccs, ccs_haplotype, hapmash_hetsnp_lst, wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit) in chrom2hapmash_lst[chrom]:
-            o.write("{}:{}\t{}\t{}\n\n{}\n{}\n{}\n{}\n\n".format(ccs, ccs_haplotype, ",".join(hapmash_hetsnp_lst), wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit))
+        for (ccs, ccs_haplotype, hapsmash_hetsnp_lst, wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit) in chrom2hapsmash_lst[chrom]:
+            o.write("{}:{}\t{}\t{}\n\n{}\n{}\n{}\n{}\n\n".format(ccs, ccs_haplotype, ",".join(hapsmash_hetsnp_lst), wmark_hetsnp_lst, wmark_lst, h0_hbit, h1_hbit, read_hbit))
     o.close()
 
 
@@ -503,7 +503,7 @@ def dump_hetsnp_statistics(
 
 def dump_recombination_statistics(
     chrom_lst: List[str], 
-    chrom2hapmash_statistics: Dict[str, List[int]],
+    chrom2hapsmash_statistics: Dict[str, List[int]],
     out_file: str
 ):
     
@@ -523,7 +523,7 @@ def dump_recombination_statistics(
     nrow = len(row_names)
     dt = np.zeros((nrow, ncol))
     for idx, chrom in enumerate(chrom_lst):
-        for jdx, count in enumerate(chrom2hapmash_statistics[chrom]): 
+        for jdx, count in enumerate(chrom2hapsmash_statistics[chrom]): 
             dt[jdx][idx] = count
     
     o = open(out_file, "w")

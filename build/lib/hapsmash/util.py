@@ -21,7 +21,7 @@ class NestedDefaultDict(defaultdict):
 
 
 def exit():
-    print("exiting hapmash")
+    print("exiting hapsmash")
     sys.exit(0)
 
 
@@ -132,7 +132,7 @@ def check_vcf_file(vcf_file: str):
                     print("tabix index file does not exist")
                     return 1
             elif vcf_file.endswith(".gz"):
-                print("hapmash doesn't support loading of gzip compressed VCF files") 
+                print("hapsmash doesn't support loading of gzip compressed VCF files") 
                 return 1
             else:
                 print("VCF file must have the .vcf suffix")
@@ -166,13 +166,13 @@ def check_out_file(out_file: str):
     if out_file.endswith(".vcf"):
         return 0 
     elif out_file.endswith(".gz"):
-        print("hapmash doesn't support return gzip compressed VCF files") 
+        print("hapsmash doesn't support return gzip compressed VCF files") 
         return 1
     elif out_file.endswith(".bgz"):
-        print("hapmash doesn't support return bgzip compressed VCF files") 
+        print("hapsmash doesn't support return bgzip compressed VCF files") 
         return 1
     else:
-        print("hapmash doesn't recgonise the suffix of the file")
+        print("hapsmash doesn't recgonise the suffix of the file")
         return 1
 
     
@@ -284,5 +284,5 @@ def update_allelecounts(
             tpos += ref_len
             qpos += alt_len
     # else:
-    #     return hapmash.cslib.cs2tpos2qbase(ccs)
+    #     return hapsmash.cslib.cs2tpos2qbase(ccs)
 

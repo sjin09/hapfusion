@@ -83,25 +83,26 @@ def cs2subindel(ccs):
     qpos = ccs.qstart
     ccs.tsbs_lst = []
     ccs.qsbs_lst = []
-    ccs.qsbs_bq_lst = []
-    ccs.tdel_lst = []
-    ccs.tins_lst = []
-    ccs.qins_bq_lst = []
+    ccs.tindel_lst = []
+    ccs.tindel_bq_lst = []
     for cstuple in ccs.cstuple_lst:
         state, ref, alt, ref_len, alt_len, = cstuple
         if ref.count("N") > 0:
             continue
-        if state == 2:  # snp 
-            ccs.qsbs_bq_lst.append(ccs.bq_int_lst[qpos])
-            ccs.tsbs_lst.append((ccs.tname, tpos + 1, ref, alt))
-            ccs.qsbs_lst.append((ccs.qname, qpos + 1, alt, ref))
+        if state == 2: # snp 
+            bq = ccs.bq_int_lst[qpos]
+            ccs.tsbs_lst.append((tpos + 1, ref, alt, bq))
+            ccs.qsbs_lst.append((qpos + 1, alt, ref, bq))
         elif state == 3: # insertion
             ins_start = qpos - 1
             ins_end = qpos - 1 + len(alt)
-            ccs.tins_lst.append((ccs.tname, tpos, ref, alt))
-            ccs.qins_bq_lst.append(ccs.bq_int_lst[ins_start:ins_end])
+            bq_sum = sum(ccs.bq_int_lst[ins_start:ins_end])
+            ccs.tindel_lst.append((tpos, ref, alt, bq_sum))
+            # ccs.tins_lst.append((ccs.tname, tpos, ref, alt))
+            # ccs.qins_bq_lst.append(ccs.bq_int_lst[ins_start:ins_end])
         elif state == 4: # deletion
-            ccs.tdel_lst.append((ccs.tname, tpos, ref, alt))
+            bq_sum = 93*len(alt)
+            ccs.tindel_lst.append((tpos, ref, alt, bq_sum))
         tpos += ref_len 
         qpos += alt_len
 

@@ -21,7 +21,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser = argparse.ArgumentParser(
         add_help=True,
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter),
-        description="hapmash calls crossovers and gene conversions"
+        description="hapsmash calls crossovers and gene conversions"
     )
     parser.add_argument(
         "-v",
@@ -46,6 +46,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimap2 (parameters: -ax map-hifi --cs=short) aligned SAM/BAM files"
     )
     parser_call.add_argument(
+        "--vcf",
+        type=str,
+        required=True,
+        help="phased deepvariant VCF file" 
+    )
+    parser_call.add_argument(
         "--region",
         type=str,
         required=False,
@@ -56,12 +62,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=str,
         required=False,
         help="list of target chromosomes separated by new line"
-    )
-    parser_call.add_argument(
-        "--vcf",
-        type=str,
-        required=True,
-        help="phased deepvariant VCF file" 
     )
     parser_call.add_argument(
         "--min_bq",
@@ -85,18 +85,18 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum proportion of bases to be trimmed from the start and end of the read"
     )
     parser_call.add_argument(
-        "--min_alignment_proportion",
-        type=float,
-        default=0.80,
-        required=False,
-        help="minimum proportion of aligned bases"
-    )
-    parser_call.add_argument(
         "--min_sequence_identity",
         type=float,
         default=0.95,
         required=False,
         help="minimum blast sequence identity threshold"
+    )
+    parser_call.add_argument(
+        "--min_alignment_proportion",
+        type=float,
+        default=0.80,
+        required=False,
+        help="minimum proportion of aligned bases"
     )
     parser_call.add_argument(
         "--mismatch_window",
@@ -177,6 +177,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         default=30,
         required=False,
         help="minimum quality (QUAL) score for hetsnps",
+    )
+    parser_phase.add_argument(
+        "--min_p_value",
+        type=float,
+        default=0.0001,
+        required=False,
+        help="minimum proportion of phase consistent edges"
     )
     parser_phase.add_argument(
         "--min_phase_proportion",

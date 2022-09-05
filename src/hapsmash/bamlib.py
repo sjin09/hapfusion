@@ -4,10 +4,10 @@ import random
 import natsort
 import numpy as np
 import dataclasses
-import hapmash.util
-import hapmash.cslib
-import hapmash.vcflib
-from typing import List, Dict, Tuple
+import hapsmash.util
+import hapsmash.cslib
+import hapsmash.vcflib
+from typing import Set, List, Dict, Tuple
 
 
 class BAM:
@@ -35,14 +35,18 @@ class BAM:
                 self.is_primary = False
         else:
             self.is_primary = False
-        hapmash.cslib.cs2tuple(self)
-        hapmash.cslib.cs2subindel(self)
+        hapsmash.cslib.cs2tuple(self)
+        hapsmash.cslib.cs2subindel(self)
+       
         
     def load_mutations(
         self, 
-        het_set,
-        hom_set,
-        phased_hetsnp_set,
+        het_set: Set[Tuple[str, int, str, str]],
+        hom_set: Set[Tuple[str, int, str, str]],
+        hetpos_set: Set[int],
+        hompos_set: Set[int],
+        phased_hetsnp_set: Set[Tuple[str, int, str, str]],
+        pos2allele: Dict[int, List[str]],
     ):
 
         self.hetsnp_lst = []
@@ -51,33 +55,58 @@ class BAM:
         self.homindel_lst = []
         self.denovo_sbs_lst = []
         self.denovo_indel_lst = []
-        for idx, (chrom, tpos, ref, alt) in enumerate(self.tsbs_lst):
-            alpha = self.qsbs_bq_lst[idx]/float(93)
-            if (chrom, tpos, ref, alt) in hom_set:
-                self.homsnp_lst.append((chrom, tpos, ref, alt, alpha))
-            elif (chrom, tpos, ref, alt) in het_set:
+        for (tpos, ccs_ref, ccs_alt, bq) in self.tsbs_lst:
+            alpha = bq/float(93)
+            # print(tpos, ccs_ref, ccs_alt, bq)
+            if (tpos, ccs_ref, ccs_alt) in hom_set:
+                self.homsnp_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+            elif (tpos, ccs_ref, ccs_alt) in het_set:
                 continue
-            elif (chrom, tpos, ref, alt) in phased_hetsnp_set:
-                self.hetsnp_lst.append((chrom, tpos, ref, alt, alpha))
+            elif (tpos, ccs_ref, ccs_alt) in phased_hetsnp_set:
+                self.hetsnp_lst.append((tpos, ccs_ref, ccs_alt, alpha))
             else:
-                self.denovo_sbs_lst.append((chrom, tpos, ref, alt, alpha))
-                
-        for idx, (chrom, tpos, ref, alt) in enumerate(self.tins_lst): ## TODO, indels can be approximately similar
-            
-            bq_sum = sum(self.qins_bq_lst[idx])
-            alpha = bq_sum/float((93 * len(alt)))
-            if (chrom, tpos, ref, alt) in het_set:
-                self.hetindel_lst.append((chrom, tpos, ref, alt, alpha))
-            elif (chrom, tpos, ref, alt) in hom_set:
-                self.homindel_lst.append((chrom, tpos, ref, alt, alpha))
+                self.denovo_sbs_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+               
+        for (tpos, ccs_ref, ccs_alt, bq) in self.tindel_lst: ## TODO, indels can be approximately similar
+            alpha = bq/float((93 * len(ccs_alt)))
+            if (tpos, ccs_ref, ccs_alt) in het_set:
+                self.hetindel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+            elif (tpos, ccs_ref, ccs_alt) in hom_set:
+                self.homindel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
             else:
-                self.denovo_indel_lst.append((chrom, tpos, ref, alt, alpha))
-        self.mismatch_lst = natsort.natsorted([self.denovo_sbs_lst + self.denovo_indel_lst + self.hetindel_lst + self.homindel_lst])
-        print(self.mismatch_lst)
-        for mismatch in self.mismatch_lst:
-            print(mismatch)
-            print(mismatch[1])
-        # self.mismatch_tpos_lst = [mismatch[1] for mismatch in self.mismatch_lst]
+                if tpos in pos2allele:
+                    ccs_ref_len = len(ccs_ref) 
+                    ccs_alt_len = len(ccs_alt) 
+                    if ccs_ref_len > ccs_alt_len:
+                        ccs_state = 0
+                    elif ccs_ref_len < ccs_alt_len:
+                        ccs_state = 1
+
+                    vcf_ref_len, vcf_alt_len = [len(allele) for allele  in pos2allele[tpos]]
+                    if vcf_ref_len > vcf_alt_len:
+                        vcf_state = 0
+                    elif vcf_ref_len < vcf_alt_len: 
+                        vcf_state = 1
+                    
+                    if tpos in hetpos_set: ## requires indel realignment
+                        if ccs_state == 0 and vcf_state == 0:
+                            self.hetindel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+                        elif ccs_state == 1 and vcf_state == 1:
+                            self.hetindel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+                        else:
+                            self.denovo_indel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+                    elif tpos in hompos_set:
+                        if ccs_state == 0 and vcf_state == 0:
+                            self.homindel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+                        elif ccs_state == 1 and vcf_state == 1:
+                            self.homindel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+                        else:
+                            self.denovo_indel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+                else:  
+                    self.denovo_indel_lst.append((tpos, ccs_ref, ccs_alt, alpha))
+                    
+        self.mismatch_lst = natsort.natsorted(self.denovo_sbs_lst + self.denovo_indel_lst + self.hetindel_lst + self.homindel_lst)
+        self.mismatch_tpos_lst = [mismatch[0] for mismatch in self.mismatch_lst]
    
         
 def get_sample(bam_file: str):
@@ -97,7 +126,7 @@ def get_sample(bam_file: str):
         print(
             "samtools reheader in.header.sam in.bam > out.bam command can be used to insert a new header"
         )
-        hapmash.util.exit()
+        hapsmash.util.exit()
     return sample
 
 
@@ -118,7 +147,7 @@ def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
     if len(tname_lst) == 0:
         print("@SQ header is missing from BAM file")
         print("Please use samtools reheader to insert approprirate header to your BAM file")
-        hapmash.util.exit()
+        hapsmash.util.exit()
     return tname_lst, tname2tsize
 
 
@@ -137,7 +166,7 @@ def get_thresholds(
     if len(chrom_lst) == 0:
         print("target is missing")
         print("Please check .vcf file or .target file")
-        hapmash.util.exit() 
+        hapsmash.util.exit() 
 
     qlen_lst = []        
     random.seed(10)
@@ -160,8 +189,10 @@ def get_thresholds(
     alignments.close()
     qlen_std = np.std(qlen_lst)
     qlen_mean = math.ceil(np.mean(qlen_lst))
-    qlen_upper_limit = math.ceil(qlen_mean + 2 * qlen_std)
     qlen_lower_limit = math.ceil(qlen_mean - 2 * qlen_std)
+    if qlen_lower_limit < 0:
+        qlen_lower_limit = 0
+    qlen_upper_limit = math.ceil(qlen_mean + 2 * qlen_std)
     coverage = genome_read_sum / float(genome_sample_sum)
     md_threshold = get_md_threshold(coverage)
     return qlen_mean, qlen_lower_limit, qlen_upper_limit, md_threshold

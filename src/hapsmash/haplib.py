@@ -68,17 +68,17 @@ def get_ccs_hbit_lst(
         bidx = hetsnp2bidx[phased_hetsnp]
         bidx2hetsnp_subset_lst[bidx].append(phased_hetsnp)
     blk_cnt = len(bidx2hetsnp_subset_lst.keys()) ## todo
-    
+   
     if blk_cnt == 1:
         h0_hbit_lst = []
         ccs_hbit_lst = []
-        block_hetsnp_lst = list(bidx2hetsnp_subset_lst.values())[0]
-        for block_hetsnp in block_hetsnp_lst: # get read haplotype bits
-            qbase, _ = ccs.tpos2qbase[block_hetsnp[1]]
-            h0_hbit_lst.append(hetsnp2hstate[block_hetsnp])
-            if qbase == block_hetsnp[2]: # ref
+        blk_hetsnp_lst = list(bidx2hetsnp_subset_lst.values())[0]
+        for hetsnp in blk_hetsnp_lst: # get read haplotype bits
+            qbase, _ = ccs.tpos2qbase[hetsnp[0]]
+            h0_hbit_lst.append(hetsnp2hstate[hetsnp])
+            if qbase == hetsnp[1]: # ref
                 ccs_hbit_lst.append("0")
-            elif qbase == block_hetsnp[3]: # alt
+            elif qbase == hetsnp[2]: # alt
                 ccs_hbit_lst.append("1")
             else: # del
                 ccs_hbit_lst.append("-")
@@ -88,26 +88,29 @@ def get_ccs_hbit_lst(
         return [], [], [], [] 
 
 
-def get_hapswitch_hetsnps(
+def get_hapsmash_hetsnps(
     ccs_hap: str,
     h0_hbit_lst: List[str], 
     ccs_hbit_lst: List[str],
-    phased_hetsnp_subset_lst: List[Tuple[str, int, str, str]]
+    phased_hetsnp_subset_lst: List[Tuple[int, str, str]]
 ) -> Tuple[List[int], str]:
 
-    ccs_hapswitch_hetsnp_lst = []
+    hapsmash_hetsnp_lst = []
+    hapsmash_hetsnp_idx_lst = []
     if ccs_hap == "0":
         for i, (j, k) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
             if k == "-":
                 continue
             if j != k:
-                ccs_hapswitch_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
+                hapsmash_hetsnp_idx_lst.append(i)
+                hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
     elif ccs_hap == "1":
         for x, (y, z) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
             if z == "-":
                 continue
             if y == z:
-                ccs_hapswitch_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
+                hapsmash_hetsnp_idx_lst.append(x)
+                hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[x])
     else:
         h0_distance = 0
         h1_distance = 0
@@ -121,11 +124,13 @@ def get_hapswitch_hetsnps(
                 if k == "-":
                     continue
                 if j != k:
-                    ccs_hapswitch_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
+                    hapsmash_hetsnp_idx_lst.append(i)
+                    hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
         else: # ccs haplotype: 1 
             for i, (j, k) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
                 if k == "-":
                     continue
                 if j == k:
-                    ccs_hapswitch_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
-    return ccs_hapswitch_hetsnp_lst
+                    hapsmash_hetsnp_idx_lst.append(i)
+                    hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
+    return hapsmash_hetsnp_lst, hapsmash_hetsnp_idx_lst

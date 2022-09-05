@@ -20,14 +20,14 @@ if os.path.exists(readme_path):
 
 setup(
     long_description=readme,
-    name='hapmash',
+    name='hapsmash',
     version='0.0.1',
-    description='Hapmix',
+    description='Hapsmash',
     python_requires='==3.*,>=3.6.1',
     project_urls={
-        "documentation": "https://hapmash.readthedocs.io",
-        "homepage": "https://github.com/sjin09/hapmash",
-        "repository": "https://github.com/sjin09/hapmash"
+        "documentation": "https://hapsmash.readthedocs.io",
+        "homepage": "https://github.com/sjin09/hapsmash",
+        "repository": "https://github.com/sjin09/hapsmash"
     },
     author='Sangjin Lee',
     author_email='sl17@sanger.ac.uk',
@@ -38,10 +38,10 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9'
     ],
-    entry_points={"console_scripts": ["hapmash = hapmash.__main__:main"]},
-    packages=['hapmash'],
+    entry_points={"console_scripts": ["hapsmash = hapsmash.__main__:main"]},
+    packages=['hapsmash'],
     package_dir={"": "src"},
-    package_data={"hapmash": ["*.typed"]},
+    package_data={"hapsmash": ["*.typed"]},
     install_requires=[
         'argparse==1.*,>=1.4.0', 'click==7.*,>=7.0.0', 'cyvcf2==0.*,>=0.30.14',
         'natsort==8.*,>=8.0.2',

@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "hapmash"
+name = "hapsmash"
 version = "0.0.1"
-description = "Hapmix"
+description = "Hapsmash"
 authors = ["Sangjin Lee <sl17@sanger.ac.uk>"]
 license = "MIT"
 readme = "README.rst"
-homepage = "https://github.com/sjin09/hapmash"
-repository = "https://github.com/sjin09/hapmash"
-documentation = "https://hapmash.readthedocs.io"
+homepage = "https://github.com/sjin09/hapsmash"
+repository = "https://github.com/sjin09/hapsmash"
+documentation = "https://hapsmash.readthedocs.io"
 classifiers = [
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
@@ -16,7 +16,7 @@ classifiers = [
 ]
 
 [tool.poetry.urls]
-Changelog = "https://github.com/sjin09/hapmash/releases"
+Changelog = "https://github.com/sjin09/hapsmash/releases"
 
 [tool.poetry.dependencies]
 python = ">=3.7,<3.11"
@@ -50,14 +50,14 @@ sphinx-click = "^2.5.0"
 Pygments = "^2.7.2"
 
 [tool.poetry.scripts]
-hapmash = "hapmash.__main__:main"
+hapsmash = "hapsmash.__main__:main"
 
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]
 
 [tool.coverage.run]
 branch = true
-source = ["hapmash"]
+source = ["hapsmash"]
 
 [tool.coverage.report]
 show_missing = true
