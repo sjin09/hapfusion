@@ -120,9 +120,10 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="maximum number of threads to be used"
     )
     parser_call.add_argument(
-        "--pdf_dir",
+        "--dir",
         type=str,
-        required=True,
+        default="pdf",
+        required=False,
         help="directory to return PDF files"
     )
     parser_call.add_argument(

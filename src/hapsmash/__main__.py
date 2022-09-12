@@ -25,7 +25,7 @@ def main():
             options.max_mismatch_count, # int: 0 
             options.threads, # maxminum number of threads
             __version__, # str
-            options.pdf_dir, # directory to return PDF files
+            options.dir, # directory to return PDF files
             options.out, # output # hapsmash vcf file
         )
     elif options.sub == "phase": # returns phased hetsnps
