@@ -177,7 +177,7 @@ def load_bgz_snp_indel(
                 hompos_set.add(v.pos)
                 pos2allele[v.pos] = [v.ref, v.alt]
             homset.add((v.pos, v.ref, v.alt))
-    return hetset, homset, hetpos_set, hompos_set
+    return hetset, homset, hetpos_set, hompos_set, pos2allele
 
 
 def load_sbs(
