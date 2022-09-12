@@ -1,17 +1,12 @@
+import os
 import math
-from re import S
-import natsort
 import svgwrite
-import numpy as np
-import hapsmash.util
-import hapsmash.cslib
 import hapsmash.bamlib
 import hapsmash.haplib
 import hapsmash.vcflib
 from svglib.svglib import svg2rlg
-from collections import defaultdict
 from reportlab.graphics import renderPDF
-from typing import Set, Dict, List, Tuple
+from typing import List, Tuple
 
 
 class SMASH:
@@ -228,16 +223,20 @@ def svg2pdf(svgin, pdfout):
 def dump_hapsmash_pdf(
     sample: str,
     chrom_lst: List[str],
-    chrom2recomb_lst
+    chrom2recomb_lst,
+    pdf_dir: str,
 ):
-   
+  
+    if not os.path.exists(pdf_dir):
+        os.mkdir(pdf_dir)
+        
     for chrom in chrom_lst:
         for recomb in chrom2recomb_lst[chrom]:
             svg = SVG()
             smash = SMASH(recomb)
             get_ly_dist(svg, smash)
-            svgout = "{}_{}_{}.svg".format(chrom, smash.tstart, smash.tend)
-            pdfout = "{}_{}_{}.pdf".format(chrom, smash.tstart, smash.tend)
+            svgout = "{}/{}_{}_{}.svg".format(pdf_dir, chrom, smash.tstart, smash.tend)
+            pdfout = "{}/{}_{}_{}.pdf".format(pdf_dir, chrom, smash.tstart, smash.tend)
             dwg = get_dwg(svg.width, svg.height, svgout) 
             add_ruler(dwg, svg, smash)
             add_text(

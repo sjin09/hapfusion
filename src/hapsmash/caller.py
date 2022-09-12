@@ -301,6 +301,7 @@ def call_recombinantion(
     max_mismatch_count: int,
     threads: int,
     version: str,
+    pdf_dir: str,
     out_file: str,
 ) -> None:
 
@@ -350,7 +351,7 @@ def call_recombinantion(
     p.close()
     p.join()
     sample = hapsmash.vcflib.get_sample(vcf_file)
-    hapsmash.imglib.dump_hapsmash_pdf(sample, chrom_lst, chrom2hapsmash_lst)
+    hapsmash.imglib.dump_hapsmash_pdf(sample, chrom_lst, chrom2hapsmash_lst, pdf_dir)
     # hapsmash.vcflib.dump_hapsmash(chrom_lst, chrom2hapsmash_lst, out_file)
     # hapsmash.vcflib.dump_hapsmash_statistics(
     #     chrom_lst, chrom2hapsmash_statistics, "{}.stat".format(out_file)
