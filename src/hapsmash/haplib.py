@@ -133,4 +133,4 @@ def get_hapsmash_hetsnps(
                 if j == k:
                     hapsmash_hetsnp_idx_lst.append(i)
                     hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
-    return hapsmash_hetsnp_lst, hapsmash_hetsnp_idx_lst
+    return hapsmash_hetsnp_lst, set(hapsmash_hetsnp_idx_lst)
