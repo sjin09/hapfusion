@@ -113,6 +113,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="maximum number of mismatches within the mismatch window"
     )
     parser_call.add_argument(
+        "-t",
         "--threads",
         type=int,
         default=1,
