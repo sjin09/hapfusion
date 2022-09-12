@@ -57,35 +57,34 @@ def get_ccs_hbit_lst(
     idx = bisect.bisect_right(phased_hpos_lst, ccs.tstart)
     jdx = bisect.bisect_right(phased_hpos_lst, ccs.tend)
     if idx == jdx:
-        return 0, []
+        return [[]] * 4 
     elif jdx - idx == 1:
-        return 1, []
+        return [[]] * 4 
     else:
         phased_hetsnp_subset_lst = [phased_hetsnp_lst[kdx] for kdx in range(idx, jdx)]
-
-    bidx2hetsnp_subset_lst = defaultdict(list)
-    for phased_hetsnp in phased_hetsnp_subset_lst:
-        bidx = hetsnp2bidx[phased_hetsnp]
-        bidx2hetsnp_subset_lst[bidx].append(phased_hetsnp)
-    blk_cnt = len(bidx2hetsnp_subset_lst.keys()) ## todo
+        bidx2hetsnp_subset_lst = defaultdict(list)
+        for phased_hetsnp in phased_hetsnp_subset_lst:
+            bidx = hetsnp2bidx[phased_hetsnp]
+            bidx2hetsnp_subset_lst[bidx].append(phased_hetsnp)
+        blk_cnt = len(bidx2hetsnp_subset_lst.keys()) ## todo
    
-    if blk_cnt == 1:
-        h0_hbit_lst = []
-        ccs_hbit_lst = []
-        blk_hetsnp_lst = list(bidx2hetsnp_subset_lst.values())[0]
-        for hetsnp in blk_hetsnp_lst: # get read haplotype bits
-            qbase, _ = ccs.tpos2qbase[hetsnp[0]]
-            h0_hbit_lst.append(hetsnp2hstate[hetsnp])
-            if qbase == hetsnp[1]: # ref
-                ccs_hbit_lst.append("0")
-            elif qbase == hetsnp[2]: # alt
-                ccs_hbit_lst.append("1")
-            else: # del
-                ccs_hbit_lst.append("-")
-        h1_hbit_lst = get_haplotype_complement(h0_hbit_lst)
-        return ccs_hbit_lst, h0_hbit_lst, h1_hbit_lst, phased_hetsnp_subset_lst 
-    else:
-        return [], [], [], [] 
+        if blk_cnt == 1:
+            h0_hbit_lst = []
+            ccs_hbit_lst = []
+            blk_hetsnp_lst = list(bidx2hetsnp_subset_lst.values())[0]
+            for hetsnp in blk_hetsnp_lst: # get read haplotype bits
+                qbase, _ = ccs.tpos2qbase[hetsnp[0]]
+                h0_hbit_lst.append(hetsnp2hstate[hetsnp])
+                if qbase == hetsnp[1]: # ref
+                    ccs_hbit_lst.append("0")
+                elif qbase == hetsnp[2]: # alt
+                    ccs_hbit_lst.append("1")
+                else: # del
+                    ccs_hbit_lst.append("-")
+            h1_hbit_lst = get_haplotype_complement(h0_hbit_lst)
+            return ccs_hbit_lst, h0_hbit_lst, h1_hbit_lst, phased_hetsnp_subset_lst 
+        else:
+            return [[]] * 4 
 
 
 def get_hapsmash_hetsnps(
