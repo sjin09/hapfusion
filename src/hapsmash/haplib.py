@@ -95,21 +95,24 @@ def get_hapsmash_hetsnps(
 ) -> Tuple[List[int], str]:
 
     hapsmash_hetsnp_lst = []
-    hapsmash_hetsnp_idx_lst = []
+    hapsmash_indel_idx_set = set()
+    hapsmash_hetsnp_idx_set = set()
     if ccs_hap == "0":
         for i, (j, k) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
             if k == "-":
+                hapsmash_indel_idx_set.add(i)
                 continue
             if j != k:
-                hapsmash_hetsnp_idx_lst.append(i)
+                hapsmash_hetsnp_idx_set.add(i)
                 hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
     elif ccs_hap == "1":
-        for x, (y, z) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
-            if z == "-":
+        for i, (j, k) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
+            if k == "-":
+                hapsmash_indel_idx_set.add(i)
                 continue
-            if y == z:
-                hapsmash_hetsnp_idx_lst.append(x)
-                hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[x])
+            if j == k:
+                hapsmash_hetsnp_idx_set.add(i)
+                hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
     else:
         h0_distance = 0
         h1_distance = 0
@@ -118,18 +121,20 @@ def get_hapsmash_hetsnps(
                 h0_distance += 1
             else:
                 h1_distance += 1
-        if h0_distance < h1_distance: # ccs haplotype: 0
+        if h0_distance < h1_distance: # ccs haplotype: 0 and "."
             for i, (j, k) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
                 if k == "-":
+                    hapsmash_indel_idx_set.add(i)
                     continue
                 if j != k:
-                    hapsmash_hetsnp_idx_lst.append(i)
+                    hapsmash_hetsnp_idx_set.add(i)
                     hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
         else: # ccs haplotype: 1 
             for i, (j, k) in enumerate(zip(h0_hbit_lst, ccs_hbit_lst)):
                 if k == "-":
+                    hapsmash_indel_idx_set.add(i)
                     continue
                 if j == k:
-                    hapsmash_hetsnp_idx_lst.append(i)
+                    hapsmash_hetsnp_idx_set.add(i)
                     hapsmash_hetsnp_lst.append(phased_hetsnp_subset_lst[i])
-    return hapsmash_hetsnp_lst, set(hapsmash_hetsnp_idx_lst)
+    return hapsmash_hetsnp_lst, hapsmash_hetsnp_idx_set, hapsmash_indel_idx_set 

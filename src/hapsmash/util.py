@@ -3,6 +3,7 @@ import sys
 import psutil
 import natsort
 import numpy as np
+import hapsmash.cslib
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
@@ -283,6 +284,6 @@ def update_allelecounts(
                     ccs.tpos2qbase[tpos + j + 1] = ("-", 0)
             tpos += ref_len
             qpos += alt_len
-    # else:
-    #     return hapsmash.cslib.cs2tpos2qbase(ccs)
+    else:
+        hapsmash.cslib.cs2tpos2qbase(ccs)
 

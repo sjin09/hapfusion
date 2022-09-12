@@ -42,7 +42,8 @@ class SMASH:
         self.ccs2hompos_lst = {}
         self.ccs2denovo_sbs_lst = {}
         self.ccs2denovo_indel_lst = {}
-        self.ccs2smash_set = defaultdict(set)
+        self.ccs2smash_indel_set = defaultdict(set)
+        self.ccs2smash_hetsnp_set = defaultdict(set)
         self.hap2ccs_lst = {hap: [] for hap in ["0", "1", "."]}
 
 
@@ -160,7 +161,7 @@ def get_hapsmash(
                     continue
                 
                 ccs.hap = hapsmash.haplib.get_ccs_haplotype(h0_hbit_lst, ccs_hbit_lst) 
-                ccs_hapsmash_hetsnp_candidate_lst, _ = hapsmash.haplib.get_hapsmash_hetsnps(ccs.hap, h0_hbit_lst, ccs_hbit_lst, phased_hetsnp_subset_lst) # search candidate 
+                ccs_hapsmash_hetsnp_candidate_lst = hapsmash.haplib.get_hapsmash_hetsnps(ccs.hap, h0_hbit_lst, ccs_hbit_lst, phased_hetsnp_subset_lst)[0] # search candidate 
                 if len(ccs_hapsmash_hetsnp_candidate_lst) == 0: ## hetsnp is deleted ## is this the result of MMR or sequencing error?
                     continue
                    
@@ -168,7 +169,6 @@ def get_hapsmash(
                 trimmed_qstart = math.floor(min_trim * ccs.qlen)
                 trimmed_qend = math.ceil((1 - min_trim) * ccs.qlen)
                 for (tpos, ref, alt) in ccs_hapsmash_hetsnp_candidate_lst:
-                    
                     qpos = ccs.tpos2qpos[tpos]
                     _, qbq = ccs.tpos2qbase[tpos]
                     if qbq < min_bq:
@@ -194,10 +194,9 @@ def get_hapsmash(
                     
                     if total_count > md_threshold:
                         continue
-                    
                     ccs_hapsmash_hetsnp_lst.append((tpos, ref, alt))
 
-                if ccs_hapsmash_hetsnp_lst != 0:
+                if len(ccs_hapsmash_hetsnp_lst) != 0:
                     tend_lst = []
                     tstart_lst = []
                     hetsnp_lst = []
@@ -207,13 +206,17 @@ def get_hapsmash(
                     if len(ccs_hapsmash_hetsnp_lst) % 2 == 0:
                         dpos = ccs_hapsmash_hetsnp_lst[int(len(ccs_hapsmash_hetsnp_lst) / 2)][0]
                         upos = ccs_hapsmash_hetsnp_lst[int(len(ccs_hapsmash_hetsnp_lst) / 2) - 1][0]
-                        smash.pos = (upos + dpos)/2 
+                        smash.pos = int((upos + dpos)/2)
                     else:
                         smash.pos = ccs_hapsmash_hetsnp_lst[int(len(ccs_hapsmash_hetsnp_lst) / 2)][0]
-
-                    for j in alignments.fetch(ccs.tname, ccs.tstart, ccs.tend):
+                        upos = smash.pos   
+                        dpos = smash.pos + 1
+                        
+                    for j in alignments.fetch(ccs.tname, upos, dpos):
                         read = hapsmash.bamlib.BAM(j)
-                        if read.is_primary and read.mapq >= min_mapq: 
+                        # if read.is_primary:
+                        if read.is_primary and read.mapq >= 1: 
+                        # if read.is_primary and read.mapq >= min_mapq: 
                             hapsmash.cslib.cs2tpos2qbase(read)
                             read.load_mutations(hetset, homset, hetpos_set, hompos_set, phased_hetsnp_set, pos2allele) 
                             read_hbit_lst, h0_hbit_lst, h1_hbit_lst, phased_hetsnp_subset_lst = hapsmash.haplib.get_ccs_hbit_lst(
@@ -242,13 +245,26 @@ def get_hapsmash(
                             elif read_hbit_lst == h1_hbit_lst: 
                                 smash.ccs2state[read.qname] = False
                                 smash.ccs2hetpos_lst[read.qname] = phased_hetpos_subset_lst
-                                continue 
+                                continue
                             seen.add(read.qname)
                             smash.ccs2state[read.qname] = True                           
                             smash.ccs2hetpos_lst[read.qname] = phased_hetpos_subset_lst
                             smash.ccs2denovo_sbs_lst[read.qname] = ccs.denovo_sbs_lst 
                             smash.ccs2denovo_indel_lst[read.qname] = ccs.denovo_indel_lst 
-                            smash.ccs2smash_set[read.qname] = hapsmash.haplib.get_hapsmash_hetsnps(read.hap, h0_hbit_lst, read_hbit_lst, phased_hetsnp_subset_lst)[1]
+                            hapsmash_hetsnp_set, hapsmash_indel_set = hapsmash.haplib.get_hapsmash_hetsnps(read.hap, h0_hbit_lst, read_hbit_lst, phased_hetsnp_subset_lst)[1:]
+                            smash.ccs2smash_indel_set[read.qname] = hapsmash_indel_set
+                            smash.ccs2smash_hetsnp_set[read.qname] = hapsmash_hetsnp_set 
+                            # if read.qname == "m64094e_220715_151527/116131834/ccs":
+                            #     print(read.qname)
+                            #     print(phased_hetsnp_subset_lst)
+                            #     print(smash.ccs2smash_indel_set[read.qname])  
+                            #     print(smash.ccs2smash_hapsmash_set[read.qname])  
+                            #     print(smash.ccs2hetpos_lst[read.qname]) 
+                            #     print(smash.ccs2denovo_sbs_lst[read.qname]) 
+                            #     print(smash.ccs2denovo_indel_lst[read.qname]) 
+                            #     print(h0_hbit_lst) 
+                            #     print(h1_hbit_lst)
+                            #     print(read_hbit_lst)
                     smash.homsnp_lst = natsort.natsorted(set(homsnp_lst))
                     smash.hetsnp_lst = natsort.natsorted(set(hetsnp_lst))
                     smash.hetindel_lst = natsort.natsorted(set(hetindel_lst))
@@ -258,7 +274,8 @@ def get_hapsmash(
                             smash.ccs2mapq,
                             smash.ccs2state,
                             smash.ccs2coord, 
-                            dict(smash.ccs2smash_set),
+                            dict(smash.ccs2smash_indel_set),
+                            dict(smash.ccs2smash_hetsnp_set),
                             smash.ccs2hetpos_lst,
                             smash.ccs2denovo_sbs_lst,
                             smash.ccs2denovo_indel_lst,

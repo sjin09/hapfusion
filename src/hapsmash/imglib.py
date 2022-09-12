@@ -16,15 +16,16 @@ class SMASH:
         self.ccs2state = arr[2]
         self.ccs2coord = arr[3]
         self.coord2ccs = {v: k for k,v in arr[3].items()} 
-        self.ccs2hetpos_lst = arr[5]
-        self.ccs2denovo_sbs_lst = arr[6]
-        self.ccs2denovo_indel_lst = arr[7]
-        self.ccs2smash_set = arr[4]
-        self.hap2ccs_lst = arr[8]
-        self.homsnp_lst = arr[9]
-        self.hetsnp_lst = arr[10]
-        self.hetindel_lst = arr[11]
-        self.tstart, self.tend = arr[12]
+        self.ccs2hetpos_lst = arr[6]
+        self.ccs2denovo_sbs_lst = arr[7]
+        self.ccs2denovo_indel_lst = arr[8]
+        self.ccs2smash_indel_set = arr[4]
+        self.ccs2smash_hetsnp_set = arr[5]
+        self.hap2ccs_lst = arr[9]
+        self.homsnp_lst = arr[10]
+        self.hetsnp_lst = arr[11]
+        self.hetindel_lst = arr[12]
+        self.tstart, self.tend = arr[13]
         self.tlen = self.tend - self.tstart 
         self.tdist = int(round((self.tlen/10), -3))
         umut = int(math.floor((self.center - self.tstart)/self.tdist))
@@ -37,24 +38,24 @@ class SVG():
         self.width = 1000
         self.height = 500
         self.center = 500
-        self.title_x = 25
+        self.title_x = 25 # title
         self.title_y = 50
         self.title_font_size = "15"
-        self.lx_dist = 450
-        self.ly_init = 100
-        self.ruler_x1 = self.center - self.lx_dist
+        self.lx_dist = 450 # lines
+        self.ly_init = 70
+        self.lcolour = "black"
+        self.lstroke_width = 1
+        self.ruler_x1 = self.center - self.lx_dist # ruler
         self.ruler_x2 = self.center + self.lx_dist
         self.ruler_xlen = self.ruler_x2 - self.ruler_x1
         self.ruler_y = 450
         self.ruler_dist = 20
-        self.circle_radius = 2
-        self.text_xdist = 120 
+        self.text_xdist = 120 # txt
         self.text_size = "6"
-        self.smash_fill = "red"
-        self.line_colour = "black"
-
-
-
+        self.smash_fill = "red" # circle
+        self.circle_radius = 2.5 
+        self.circle_stroke = "black" 
+        
 HAP_LST = ["0", "1", "."] 
 def get_ccs_count(smash):
     ccs_count = sum([len(smash.hap2ccs_lst[hap]) for hap in HAP_LST])
@@ -65,8 +66,8 @@ def get_ly_dist(
     svg, 
     smash,
 ):
-    ccs_count = sum([len(smash.hap2ccs_lst[hap]) for hap in HAP_LST])
-    svg.ly_dist = math.floor((svg.ruler_y - (svg.ruler_dist +  svg.ly_init))/ccs_count)
+    ccs_count = sum([len(smash.hap2ccs_lst[hap]) for hap in HAP_LST]) + 3
+    svg.ly_dist = math.floor((svg.ruler_y - (svg.ruler_dist + svg.ly_init))/ccs_count)
        
         
 def get_dwg(width, height, svgout):
@@ -115,6 +116,7 @@ def get_ccs_coordinates(svg, smash):
 
     counter = 0
     ccs2lxy = get_initial_ccs_coordinates(svg, smash)
+    ccs2txy = {} 
     for hap in HAP_LST:
         seen = set()
         counter += 1
@@ -141,10 +143,12 @@ def get_ccs_coordinates(svg, smash):
                     seen.add(i)
                     seen.add(j)
                     ccs2lxy[j] = (tlx1, ly, tlx2, ly)
+                    ccs2txy[j] = (qlx1 - svg.text_xdist, ly + (svg.ly_dist * 1/3))                            
                     break
             counter += 1
             ccs2lxy[i] = (qlx1, ly, qlx2, ly)
-    return ccs2lxy
+            ccs2txy[i] = (qlx1 - svg.text_xdist, ly + (svg.ly_dist * 1/3))                            
+    return ccs2lxy, ccs2txy
 
 
 def add_line(
@@ -176,27 +180,63 @@ def get_hetsnp_coordinate(
     return cx
 
 
+def get_circle_fill(hap):
+    if hap == "0":
+        circle_fill = "black" 
+    elif hap == "1":
+        circle_fill = "white" 
+    else:
+        circle_fill = "grey" 
+    return circle_fill
+
+
 def add_circle(
     dwg,
     cx: int,
     cy: int,
     radius: int,
-    cfill: str 
+    cfill: str,
+    cstroke: str, 
 ):
     dwg.add(
         dwg.circle(center=(cx, cy),
         r=radius,
-        stroke=svgwrite.rgb(15, 15, 15, '%'),
-        fill=cfill)
+        # stroke=svgwrite.rgb(15, 15, 15, '%'),
+        # stroke=svgwrite.rgb(15, 15, 15, '%'),
+        fill=cfill,
+        stroke=cstroke)
     )
 
+
+def add_cross(
+    dwg,
+    svg,
+    x,
+    y,
+):
+    dwg.add(
+        dwg.line(
+            start=(x - 3, y - 3), 
+            end=(x + 3, y + 3), 
+            stroke=svg.lcolour, 
+            stroke_width=svg.lstroke_width
+            )
+        )
+    dwg.add(
+        dwg.line(
+            start=(x + 3, y - 3), 
+            end=(x - 3, y + 3), 
+            stroke=svg.lcolour, 
+            stroke_width=svg.lstroke_width
+            )
+        )
 
 def add_ruler(
     dwg,
     svg, 
     smash
 ):
-    add_line(dwg, svg.ruler_x1, svg.ruler_y, svg.ruler_x2, svg.ruler_y, svg.line_colour, 1) # draw ruler
+    add_line(dwg, svg.ruler_x1, svg.ruler_y, svg.ruler_x2, svg.ruler_y, svg.lcolour, svg.lstroke_width) # draw ruler
     for tick in smash.tick_lst:
         tick_x = svg.ruler_x1 + (svg.ruler_xlen * (tick - smash.tstart)/smash.tlen)
         if tick < smash.center:
@@ -205,7 +245,7 @@ def add_ruler(
             tick_txt = 0
         else:
             tick_txt = "+{} bp".format(tick - smash.center)
-        add_line(dwg, tick_x, svg.ruler_y, tick_x, svg.ruler_y - 5, svg.line_colour, 1) # draw ruler
+        add_line(dwg, tick_x, svg.ruler_y, tick_x, svg.ruler_y - 5, svg.lcolour, 1) # draw ruler
         add_text(
             dwg,
             tick_x,
@@ -247,31 +287,35 @@ def dump_hapsmash_pdf(
                 svg.title_font_size,
             )
 
-            ccs2lxy = get_ccs_coordinates(svg, smash)
+            ccs2lxy, ccs2txt_xy = get_ccs_coordinates(svg, smash)
             for hap in HAP_LST:
                 for ccs in smash.hap2ccs_lst[hap]:                        
-                    state = smash.ccs2state[ccs]  
+                    state = smash.ccs2state[ccs] 
                     lx1, ly1, lx2, ly2 = ccs2lxy[ccs]
-                    circle_fill = "black" if hap == "0" else "white" 
-                    add_line(dwg, lx1, ly1, lx2, ly2, svg.line_colour, 1) # draw reads
-                    if state: 
+                    circle_fill = get_circle_fill(hap)
+                    add_line(dwg, lx1, ly1, lx2, ly2, svg.lcolour, svg.lstroke_width) # draw reads
+                    if state:
+                        cross_lst = []
+                        smash_lst = [] 
                         for i, hetpos in enumerate(smash.ccs2hetpos_lst[ccs]):
                             cx = get_hetsnp_coordinate(hetpos, svg, smash)
-                            if i in smash.ccs2smash_set[ccs]:
-                                add_circle(dwg, cx, ly1, svg.circle_radius, svg.smash_fill)
+                            if i in smash.ccs2smash_indel_set[ccs]:
+                                cross_lst.append(cx)
+                            elif i in smash.ccs2smash_hetsnp_set[ccs]:
+                                smash_lst.append(cx)    
                             else:
-                                add_circle(dwg, cx, ly1, svg.circle_radius, circle_fill)
-                        add_text(
-                            dwg,
-                            lx1 - svg.text_xdist,
-                            ly1 + (svg.ly_dist * 1/3),
-                            ccs,
-                            svg.text_size
-                        )
+                                add_circle(dwg, cx, ly1, svg.circle_radius, circle_fill, svg.circle_stroke)
+                        for cx in cross_lst:
+                            add_circle(dwg, cx, ly1, svg.circle_radius, circle_fill, svg.circle_stroke)
+                            add_cross(dwg, svg, cx, ly1)
+                        for cx in smash_lst:
+                            add_circle(dwg, cx, ly1, svg.circle_radius, svg.smash_fill, svg.smash_fill)
+                        tx, ty = ccs2txt_xy[ccs] 
+                        add_text(dwg, tx, ty, ccs, svg.text_size)
                     else:
                         for hetpos in smash.ccs2hetpos_lst[ccs]:
                             cx = get_hetsnp_coordinate(hetpos, svg, smash)
-                            add_circle(dwg, cx, ly1, svg.circle_radius, circle_fill)
+                            add_circle(dwg, cx, ly1, svg.circle_radius, circle_fill, svg.circle_stroke)
             dwg.save()
             svg2pdf(svgout, pdfout) 
 
