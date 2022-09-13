@@ -24,6 +24,8 @@ argparse = "^1.4.0"
 natsort = "^8.0.2"
 numpy = {version = "^1.22.1", python = ">=3.8,<4.0.0"}
 scipy = "^1.7.3"
+svglib = "^1.4.1"
+svgwrite = "^1.4.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.1.2"
