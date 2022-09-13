@@ -246,7 +246,6 @@ def get_hblock(
     chrom2hblock_statistics: Dict[str, Tuple[int, int, int, int, int]],
 ) -> List[List[Tuple[int, Tuple[int, int]]]]:
 
-    print("starting edge collection")
     hetsnp_lst, _, hetsnp2hidx = hapsmash.vcflib.load_hetsnps(vcf_file, chrom, chrom_len)
     hpos_lst = [hetsnp[1] for hetsnp in hetsnp_lst]
     edge_lst, edge2counts = get_edges(
@@ -258,7 +257,6 @@ def get_hblock(
         hetsnp_lst, 
         hetsnp2hidx
     )
-    print("finished edge collection")
     hblock_lst = build_haplotype_block(edge_lst, edge2counts, min_p_value, min_phase_proportion)
     chrom2hblock_lst[chrom] = hblock_lst 
     chrom2hblock_statistics[chrom] = get_hblock_statistics(hblock_lst, hetsnp_lst) 
