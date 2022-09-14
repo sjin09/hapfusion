@@ -11,7 +11,7 @@ def main():
     parser, options = parse_args(program_version=__version__)
     if options.sub == "call": # return gene conversions
         hapsmash.util.check_num_threads(options.threads)
-        hapsmash.caller.call_recombinantion(
+        hapsmash.caller.call_hapsmash(
             options.bam, # input # bam_file
             options.vcf, # deepvariant phased germline mutations
             options.region, # region 

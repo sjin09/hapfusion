@@ -304,7 +304,7 @@ def get_hapsmash(
     alignments.close()
 
 
-def call_recombinantion(
+def call_hapsmash(
     bam_file: str,
     vcf_file: str,
     region: str,
