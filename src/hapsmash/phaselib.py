@@ -267,7 +267,6 @@ def get_chrom_hblock(
     vcf_file: str,
     region: str,
     region_lst: str,
-    min_qual: int,
     min_bq: int, 
     min_mapq: int,
     min_p_value: float,
@@ -312,7 +311,6 @@ def get_chrom_hblock(
     hapsmash.vcflib.dump_phased_hetsnps( 
         bam_file,
         vcf_file,
-        min_qual,
         chrom_lst,
         tname2tsize,
         chrom2hblock_lst, 

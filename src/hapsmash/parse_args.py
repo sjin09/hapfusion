@@ -180,13 +180,6 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum mapping quality score"
     )
     parser_phase.add_argument(
-        "--min_qual",
-        type=int,
-        default=30,
-        required=False,
-        help="minimum quality (QUAL) score for hetsnps",
-    )
-    parser_phase.add_argument(
         "--min_p_value",
         type=float,
         default=0.0001,
@@ -201,6 +194,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimum proportion of phase consistent edges"
     )
     parser_phase.add_argument(
+        "-t",
         "--threads",
         type=int,
         default=1,

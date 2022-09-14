@@ -34,7 +34,6 @@ def main():
             options.vcf, 
             options.region, 
             options.region_list,
-            options.min_qual, 
             options.min_bq, 
             options.min_mapq,
             options.min_p_value,

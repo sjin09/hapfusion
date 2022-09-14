@@ -356,7 +356,6 @@ def get_phased_hetsnps(
 def dump_phased_hetsnps(
     bam_file: str,
     vcf_file: str,
-    min_qual: int,
     chrom_lst: List[str],
     tname2tsize: Dict[str, int],
     chrom2hblock_lst: List[List[Tuple[int, int]]],
@@ -408,15 +407,12 @@ def dump_phased_hetsnps(
                 fmt, sample_fmt = line.strip().split()[-2:]
                 if v.is_snp and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
                     hetsnp = (v.chrom, v.pos, v.ref, v.alt)
-                    if v.qual > min_qual:
-                        if hetsnp in hetsnp2hstate:
-                            phase_set = hetsnp2phase_set[hetsnp]
-                            sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
-                            sample_fmt_arr = sample_fmt.split(":")
-                            sample_fmt_arr[0] = sample_gt
-                            o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
-                        else:
-                            o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
+                    if hetsnp in hetsnp2hstate:
+                        phase_set = hetsnp2phase_set[hetsnp]
+                        sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
+                        sample_fmt_arr = sample_fmt.split(":")
+                        sample_fmt_arr[0] = sample_gt
+                        o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
                     else:
                         o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
                 else:
@@ -435,15 +431,12 @@ def dump_phased_hetsnps(
                 if v.is_pass:
                     if v.is_snp and v.is_biallelic and (v.sample_gt == "0/1" or v.sample_gt == "1/0"):
                         hetsnp = (v.chrom, v.pos, v.ref, v.alt)
-                        if v.qual > min_qual:
-                            if hetsnp in hetsnp2hstate:
-                                phase_set = hetsnp2phase_set[hetsnp]
-                                sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
-                                sample_fmt_arr = sample_fmt.split(":")
-                                sample_fmt_arr[0] = sample_gt
-                                o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
-                            else:
-                                o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
+                        if hetsnp in hetsnp2hstate:
+                            phase_set = hetsnp2phase_set[hetsnp]
+                            sample_gt = "0|1" if hetsnp2hstate[hetsnp] == "0" else "1|0"
+                            sample_fmt_arr = sample_fmt.split(":")
+                            sample_fmt_arr[0] = sample_gt
+                            o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:{}\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, ":".join(sample_fmt_arr), phase_set))
                         else:
                             o.write("{}\t{}\t.\t{}\t{}\t{}\tPASS\t.\t{}:PS\t{}:.\n".format(v.chrom, v.pos, v.ref, v.alt, v.qual, fmt, sample_fmt))
                     else:
