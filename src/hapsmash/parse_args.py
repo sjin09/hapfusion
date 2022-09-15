@@ -36,7 +36,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     parser_call = subparsers.add_parser(
         "call",
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
-        help="detect crossovers and gene conversions using PacBio circular consensus seuqence reads"
+        help="detect crossovers and gene conversions using PacBio CCS reads"
     )
     parser_call.add_argument(
         "-i",
@@ -199,7 +199,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=int,
         default=1,
         required=False,
-        help="maximum number of threads to be used"
+        help="number of threads to be used"
     )
     parser_phase.add_argument(
         "-o",
