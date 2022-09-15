@@ -2,7 +2,7 @@
 import pytest
 from click.testing import CliRunner
 
-from hapmash import __main__
+from hapsmash import __main__
 
 
 @pytest.fixture

@@ -1,1 +1,1 @@
-"""Test suite for the hapmash package."""
+"""Test suite for the hapsmash package."""
