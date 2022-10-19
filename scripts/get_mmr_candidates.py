@@ -361,7 +361,7 @@ def get_mmr_candidates(
             
             idx = bisect.bisect_right(hpos_lst, ccs.tstart)
             jdx = bisect.bisect_right(hpos_lst, ccs.tend)
-            block_subset_hbit = block_hbit[idx:jdx]
+            # block_subset_hbit = block_hbit[idx:jdx]
             hetsnp_subset_lst = hetsnp_lst[idx:jdx]
             hetsnp_subset_cnt = len(hetsnp_subset_lst)
             if hetsnp_subset_cnt < 3:
@@ -378,25 +378,28 @@ def get_mmr_candidates(
                 qpos, qbase, qbq = ccs.tpos2qbase[tpos]
                 if qbase == ref:
                     ccs_hbit += "0"
+                    ref_lst.append(ref)
+                    alt_lst.append(ref)
                     qbq_lst.append(str(qbq))
                     qpos_lst.append(str(qpos))
                     qbase_lst.append(qbase)
                 elif qbase == alt:
                     ccs_hbit += "1"
+                    ref_lst.append(ref)
+                    alt_lst.append(ref)
                     qbq_lst.append(str(qbq))
                     qpos_lst.append(str(qpos))
                     qbase_lst.append(qbase)
             ccs_lst.append(
                 [
                     ccs.qname, 
-                    # "".join(ref_lst), 
-                    # "".join(alt_lst), 
                     ccs.strand,
+                    ccs_hbit,
+                    "".join(ref_lst), 
+                    "".join(alt_lst), 
                     "".join(qbase_lst),
                     ",".join(qbq_lst),
                     ",".join(qpos_lst), 
-                    # block_subset_hbit, 
-                    # ccs_hbit, 
                 ]
             ) 
     chrom2ccs_lst[chrom] = ccs_lst
@@ -435,10 +438,10 @@ def dump_mmr_candidates(
     p.join()
   
     o = open(out_file, "w")
-    o.write("{}\n".format("\t".join(["qname", "strand", "qbase", "qbq", "qpos"])))
+    o.write("{}\n".format("\t".join(["qname", "strand", "hbit", "ref", "alt", "qbase", "qbq", "qpos"])))
     for chrom in chrom_lst:
-        for (qname, strand, qbase, qbq, qpos) in chrom2ccs_lst[chrom]: 
-            o.write("{}\n".format("\t".join([qname, strand, qbase, qbq, qpos])))
+        for (qname, strand, hbit, ref, alt, qbase, qbq, qpos) in chrom2ccs_lst[chrom]: 
+            o.write("{}\n".format("\t".join([qname, strand, hbit, ref, alt, qbase, qbq, qpos])))
     o.close() 
 
 
