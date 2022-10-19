@@ -81,13 +81,14 @@ class BAM:
         self.qstart = line.query_alignment_start
         self.qend = line.query_alignment_end
         self.qseq = line.query_sequence
-        self.qlen = len(self.qseq)
+        ## self.qlen = len(self.qseq)
         self.mapq = line.mapping_quality
         self.bq_int_lst = line.query_qualities
-        self.qv = sum(self.bq_int_lst)/self.qlen
-        self.hbq_proportion = self.bq_int_lst.count(93)/float(self.qlen)
+        ## self.qv = sum(self.bq_int_lst)/self.qlen
+        self.strand = "+" if line.is_forward else "-"
+        ## self.hbq_proportion = self.bq_int_lst.count(93)/float(self.qlen)
         self.query_alignment_length = self.qend - self.qstart
-        self.query_alignment_proportion = self.query_alignment_length/float(self.qlen)
+        ## self.query_alignment_proportion = self.query_alignment_length/float(self.qlen)
         self.cs_tag = line.get_tag("cs") if line.has_tag("cs") else "."
         if line.has_tag("tp"):
             if line.get_tag("tp") == "P":
@@ -370,30 +371,32 @@ def get_mmr_candidates(
             ref_lst = []
             alt_lst = []
             qpos_lst = []
+            qbase_lst = []
             ccs_hbit = ""
             ccs.cs2tpos2qbase()
             for (tpos, ref, alt)  in hetsnp_subset_lst:
                 qpos, qbase, qbq = ccs.tpos2qbase[tpos]
-                qbq_lst.append(str(qbq))
-                qpos_lst.append(str(qpos))
                 if qbase == ref:
                     ccs_hbit += "0"
+                    qbq_lst.append(str(qbq))
+                    qpos_lst.append(str(qpos))
+                    qbase_lst.append(qbase)
                 elif qbase == alt:
                     ccs_hbit += "1"
-                else:
-                    ccs_hbit += "-"
-                ref_lst.append(ref)
-                alt_lst.append(alt)
-
+                    qbq_lst.append(str(qbq))
+                    qpos_lst.append(str(qpos))
+                    qbase_lst.append(qbase)
             ccs_lst.append(
                 [
                     ccs.qname, 
-                    "".join(ref_lst), 
-                    "".join(alt_lst), 
-                    block_subset_hbit, 
-                    ccs_hbit, 
+                    # "".join(ref_lst), 
+                    # "".join(alt_lst), 
+                    ccs.strand,
+                    "".join(qbase_lst),
+                    ",".join(qbq_lst),
                     ",".join(qpos_lst), 
-                    ",".join(qbq_lst)
+                    # block_subset_hbit, 
+                    # ccs_hbit, 
                 ]
             ) 
     chrom2ccs_lst[chrom] = ccs_lst
@@ -432,10 +435,10 @@ def dump_mmr_candidates(
     p.join()
   
     o = open(out_file, "w")
-    o.write("{}\n".format("\t".join(["qname", "ref", "alt", "block_hbit", "ccs_hbit", "qpos", "qbq"])))
+    o.write("{}\n".format("\t".join(["qname", "strand", "qbase", "qbq", "qpos"])))
     for chrom in chrom_lst:
-        for (qname, ref, alt, block_hbit, ccs_hbit, qpos, qbq) in chrom2ccs_lst[chrom]: 
-            o.write("{}\n".format("\t".join([qname, ref, alt, block_hbit, ccs_hbit, qpos, qbq])))
+        for (qname, strand, qbase, qbq, qpos) in chrom2ccs_lst[chrom]: 
+            o.write("{}\n".format("\t".join([qname, strand, qbase, qbq, qpos])))
     o.close() 
 
 
