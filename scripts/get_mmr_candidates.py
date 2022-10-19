@@ -379,14 +379,14 @@ def get_mmr_candidates(
                 if qbase == ref:
                     ccs_hbit += "0"
                     ref_lst.append(ref)
-                    alt_lst.append(ref)
+                    alt_lst.append(alt)
                     qbq_lst.append(str(qbq))
                     qpos_lst.append(str(qpos))
                     qbase_lst.append(qbase)
                 elif qbase == alt:
                     ccs_hbit += "1"
                     ref_lst.append(ref)
-                    alt_lst.append(ref)
+                    alt_lst.append(alt)
                     qbq_lst.append(str(qbq))
                     qpos_lst.append(str(qpos))
                     qbase_lst.append(qbase)
