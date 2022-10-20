@@ -24,10 +24,10 @@ def parse_args(args):
         help="BAM filed to read",
     )
     parser.add_argument(
-        "--region_list",
+        "--bed",
         type=str,
         required=True,
-        help="list of loci separated by new line"
+        help="list of coordinates separated by new line"
     ) 
     parser.add_argument(
         "--min_mapq",
@@ -165,13 +165,13 @@ def get_tname2tsize(bam_file: str) -> Tuple[List[str], Dict[str, int]]:
 
 def dump_ccs_statistics(
     bam_file: str,
-    region_file: str,
+    bed_file: str,
     min_mapq: int,
     out_file: str
 ): 
 
     o = open(out_file, "w")    
-    loci_lst = load_loci_lst(region_file)
+    loci_lst = load_loci_lst(bed_file)
     alignments = pysam.AlignmentFile(bam_file, "rb")
     for loci in loci_lst:
         for line in alignments.fetch(*loci):
@@ -189,7 +189,7 @@ def main():
     options = parse_args(sys.argv)
     dump_ccs_statistics(
         options.bam, 
-        options.region_list,
+        options.bed,
         options.min_mapq,
         options.out
     )
