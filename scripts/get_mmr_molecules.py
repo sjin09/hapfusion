@@ -55,7 +55,6 @@ def parse_args(args):
 
 def load_ccs(infile):
 
-    counter = 0
     qname2dcs = {}
     qname2fwd = {}
     qname2rev = {}
@@ -63,7 +62,10 @@ def load_ccs(infile):
     for line in open(infile):
         if line.startswith("qname"):
             continue
-        qname, strand, hbit, ref, alt, qbase, qbq, qpos= line.strip().split()
+        arr = line.strip().split()
+        if len(arr) != 8:
+            continue
+        qname, strand, hbit, ref, alt, qbase, qbq, qpos = arr
         qbq_lst = qbq.split(",")
         if qbq_lst.count("93") == len(qbq_lst):
             continue
