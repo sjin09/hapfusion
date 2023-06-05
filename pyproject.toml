@@ -1,13 +1,12 @@
 [tool.poetry]
-name = "hapsmash"
+name = "hapfusion"
 version = "0.0.1"
-description = "Hapsmash"
+description = "hapfusion: Gene conversion and crossover detection using PacBio CCS reads"
 authors = ["Sangjin Lee <sl17@sanger.ac.uk>"]
 license = "MIT"
-readme = "README.rst"
-homepage = "https://github.com/sjin09/hapsmash"
-repository = "https://github.com/sjin09/hapsmash"
-documentation = "https://hapsmash.readthedocs.io"
+readme = "README.md"
+homepage = "https://github.com/sjin09/hapfusion"
+repository = "https://github.com/sjin09/hapfusion"
 classifiers = [
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
@@ -16,19 +15,20 @@ classifiers = [
 ]
 
 [tool.poetry.urls]
-Changelog = "https://github.com/sjin09/hapsmash/releases"
+Changelog = "https://github.com/sjin09/hapfusion/releases"
 
 [tool.poetry.dependencies]
-python = ">=3.7,<3.11"
+python = ">=3.8,<3.10"
 argparse = "^1.4.0"
-natsort = "^8.0.2"
-numpy = {version = "^1.22.1", python = ">=3.8,<4.0.0"}
-scipy = "^1.7.3"
-svglib = "^1.4.1"
-svgwrite = "^1.4.3"
-pysam = "^0.19.1"
+pysam = "^0.18.0"
+biopython = "^1.78"
+natsort = "^8.0.0"
+numpy = "^1.20.2"
+psutil = "^5.8.0"
+pyfastx = "^0.8.4"
 pytabix = "^0.1"
-cyvcf2 = "^0.30.16"
+plotnine = "^0.9.0"
+cyvcf2 = "^0.30.18"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.1.2"
@@ -55,14 +55,14 @@ sphinx-click = "^2.5.0"
 Pygments = "^2.7.2"
 
 [tool.poetry.scripts]
-hapsmash = "hapsmash.__main__:main"
+hapfusion = "hapfusion.__main__:main"
 
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]
 
 [tool.coverage.run]
 branch = true
-source = ["hapsmash"]
+source = ["hapfusion"]
 
 [tool.coverage.report]
 show_missing = true
