@@ -21,13 +21,21 @@ def main():
             options.min_sequence_identity, # float: 0.0 - 1.0
             options.min_alignment_proportion, # float: 0.0 - 1.0
             options.min_bq, # minimum base quality score: int
+            options.min_gq, # minimum genotype quality score: int
             options.min_trim, # float: 0.0 1.0
             options.mismatch_window, # int: 20
             options.max_mismatch_count, # int: 0 
+            options.germline_snp_prior, # int: 0 
             options.threads, # maxminum number of threads
             __version__, # str
-            options.dir, # directory to return PDF files
-            options.out, # output # hapsmash vcf file
+            options.out, # output 
+        )
+    elif options.sub == "plot": # returns phased hetsnps
+        himut.phaselib.dump_hapfusion_plot(
+            options.input, 
+            options.region, 
+            options.region_list,
+            options.output
         )
     elif options.sub == "phase": # returns phased hetsnps
         himut.phaselib.get_chrom_hblock(
@@ -43,6 +51,7 @@ def main():
             __version__, 
             options.out, 
         )
+        
     else:
         print("The subcommand does not exist!\n")
         parser.print_help()

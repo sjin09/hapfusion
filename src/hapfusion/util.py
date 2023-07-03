@@ -5,6 +5,13 @@ import tabix
 import cyvcf2
 from typing import Dict, List
 from collections import defaultdict
+base_lst = list("ATGC")
+base_set = set(base_lst)
+allele_lst = list("ATGC+-")
+base2idx = {base: idx for idx, base in enumerate(base_lst)}
+idx2base = {idx: base for idx, base in enumerate(base_lst)}
+allele2idx = {allele: idx for idx, allele in enumerate(allele_lst)}
+idx2allele = {idx: allele for idx, allele in enumerate(allele_lst)}
 
 
 def exit():

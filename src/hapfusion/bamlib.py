@@ -4,8 +4,6 @@ import random
 import natsort
 import numpy as np
 import himut.cslib
-import hapfusion.util
-import hapfusion.vcflib
 from typing import Set, List, Dict, Tuple
 
 
@@ -33,14 +31,34 @@ class BAM:
         self.qv = np.mean(self.bq_int_lst)
         return self.qv
 
-    def cs2mut(self):
-        himut.cslib.cs2mut(self)
-
-    def cs2subindel(self):
-        himut.cslib.cs2subindel(self)
 
     def cs2tpos2qbase(self):
-        himut.cslib.cs2tpos2qbase(self)
+
+        tpos = self.tstart
+        qpos = self.qstart
+        self.rpos2qpos = {}
+        self.tpos2qbase = {}
+        self.mismatch_lst = [] 
+        for (state, ref, alt, ref_len, alt_len) in self.cstuple_lst:
+            if state == 1:  # match
+                for i, alt_base in enumerate(alt):
+                    self.rpos2qpos[tpos+i] = qpos + i
+                    self.tpos2qbase[tpos + i + 1] = (alt_base, self.bq_int_lst[qpos + i])
+            elif state == 2:  # sub
+                self.rpos2qpos[tpos] = qpos
+                self.tpos2qbase[tpos + 1] = (alt, self.bq_int_lst[qpos])
+            elif state == 3:  # insertion
+                self.mismatch_lst.append((tpos+1, ref, alt))
+            elif state == 4:  # deletion
+                self.rpos2qpos[tpos] = qpos
+                for j in range(len(ref[1:])):
+                    self.tpos2qbase[tpos + j + 1] = ("-", 0)
+                self.mismatch_lst.append((tpos+1, ref, alt))
+            tpos += ref_len
+            qpos += alt_len
+
+    def get_tcoord(self):
+        self.tcoord = "{}:{}-{}".format(self.tname, self.tstart, self.tend)
 
     def get_blast_sequence_identity(self):
  
@@ -132,5 +150,49 @@ class BAM:
                     
         self.mismatch_lst = natsort.natsorted(self.denovo_sbs_lst + self.denovo_indel_lst + self.hetindel_lst + self.homindel_lst)
         self.mismatch_tpos_lst = [mismatch[0] for mismatch in self.mismatch_lst]
-   
-        
+  
+  
+def get_read_depth(
+    basecounts: Dict[int, Dict[int, int]],
+):
+    ins_count = basecounts[4]
+    del_count = basecounts[5]
+    indel_count = ins_count + del_count
+    read_depth = sum(basecounts) - ins_count
+    return read_depth, indel_count
+
+
+def get_trim_range(
+    qlen: int,
+    min_trim: float,
+):
+    trim_qstart = math.floor(min_trim * qlen)
+    trim_qend = math.ceil((1 - min_trim) * qlen)
+    return trim_qstart, trim_qend
+     
+
+def get_mismatch_range(
+    tpos: int, 
+    qpos: int, 
+    qlen: int, 
+    window: int
+):
+    qstart, qend = [qpos - window, qpos + window]
+    if qstart < 0:
+        urange = window + qstart
+        drange = window + abs(qstart)
+    elif qend > qlen:
+        urange = window + abs(qend - qlen)
+        drange = qlen - qpos
+    else:
+        urange = window
+        drange = window
+    tstart = tpos - urange
+    tend = tpos + drange
+    return tstart, tend
+
+
+def get_mismatch_positions(ccs):
+    mismatch_tpos_lst = [mismatch[0] for mismatch in ccs.mismatch_lst] # 1-coordinate
+    return mismatch_tpos_lst 
+

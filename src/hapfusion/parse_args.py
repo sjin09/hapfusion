@@ -68,7 +68,14 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=int,
         default=93,
         required=False,
-        help="minimum base quality score threshold"
+        help="minimum base quality score"
+    )
+    parser_call.add_argument(
+        "--min_gq",
+        type=int,
+        default=20,
+        required=False,
+        help="minimum genotype quality score"
     )
     parser_call.add_argument(
         "--min_mapq",
@@ -113,6 +120,13 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="maximum number of mismatches within the mismatch window"
     )
     parser_call.add_argument(
+        "--germline_snp_prior",
+        type=float,
+        default=1/(10**3),
+        required=False,
+        help="germline SNP prior",
+    )
+    parser_call.add_argument(
         "-t",
         "--threads",
         type=int,
@@ -120,19 +134,51 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         required=False,
         help="maximum number of threads to be used"
     )
-    parser_call.add_argument(
-        "--dir",
-        type=str,
-        default="pdf",
-        required=False,
-        help="directory to return PDF files"
-    )
+    # parser_call.add_argument(
+    #     "--dir",
+    #     type=str,
+    #     default="pdf",
+    #     required=False,
+    #     help="directory to return PDF files"
+    # )
     parser_call.add_argument(
         "-o",
         "--out",
         type=str,
         required=True,
         help="TSV file to write the gene conversions"
+    )
+    # subcommands: call
+    parser_plot = subparsers.add_parser(
+        "plot",
+        formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
+        help="generate PDF files of regions with meiotic recombinations"
+    )
+    parser_plot.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        required=True,
+        help="input file with hapfusion meiotic recombniation coordinates"
+    )
+    parser_plot.add_argument(
+        "--region",
+        type=str,
+        required=False,
+        help="target chromosome",
+    )
+    parser_plot.add_argument(
+        "--region_list",
+        type=str,
+        required=False,
+        help="list of target chromosomes separated by new line"
+    )
+    parser_plot.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="directory to return PDF files"
     )
     # subcommands: phase
     parser_phase = subparsers.add_parser(
