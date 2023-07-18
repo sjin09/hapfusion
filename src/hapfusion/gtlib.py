@@ -11,12 +11,12 @@ gt_lst = ["AA", "TA", "CA", "GA", "TT", "CT", "GT", "CC", "GC", "GG"]
 def init(germline_snv_prior: float):
     global gt_state2gt_prior
     gt_state2gt_prior = {}
-    gt_state2gt_prior["Het"] = germline_snv_prior
-    gt_state2gt_prior["HetAlt"] = germline_snv_prior * germline_snv_prior * 2
-    gt_state2gt_prior["HomRef"] = 1 - (
+    gt_state2gt_prior["HetSite"] = germline_snv_prior
+    gt_state2gt_prior["HetAltSite"] = germline_snv_prior * germline_snv_prior * 2
+    gt_state2gt_prior["HomRefSite"] = 1 - (
         (1.5 * germline_snv_prior) + (germline_snv_prior * germline_snv_prior)
     )
-    gt_state2gt_prior["HomAlt"] = germline_snv_prior / 2
+    gt_state2gt_prior["HomAltSite"] = germline_snv_prior / 2
 
 
 def get_germ_gt_state(
@@ -27,13 +27,13 @@ def get_germ_gt_state(
 
     gt_state = 0
     if b1 == b2 == ref:  # homref
-        gt_state = "HomRef"
+        gt_state = "HomRefSite"
     elif (b1 == ref and b2 != ref) or (b1 != ref and b2 == ref):  # het
-        gt_state = "Het"
+        gt_state = "HetSite"
     elif b1 != ref and b2 != ref and b1 != b2:  # hetalt
-        gt_state = "HetAlt"
+        gt_state = "HetAltSite"
     elif b1 != ref and b2 != ref and b1 == b2:  # homalt
-        gt_state = "HomAlt"
+        gt_state = "HomAltSite"
     return gt_state
 
 

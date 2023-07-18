@@ -309,384 +309,26 @@ def is_noncrossover(
     return False
 
 
-def get_recombination(
+def dump_recombinations(
     bam_file: str,
-    ps2hbit_lst: Dict[str, List[str]],
-    ps2hpos_lst: Dict[int, List[int]],
-    ps2hetsnp_lst: Dict[int, List[Tuple[int, str, str]]], 
-    chunkloci_lst: List[Tuple[str, int, int]],
+    vcf_file: str,
+    region: str, 
+    region_list: str,
+    tname2tsize: Dict[str, int],
     min_mapq: int,
-    min_sequence_identity: float,
-    min_alignment_proportion: float,
     qlen_lower_limit: float,
     qlen_upper_limit: float,
     min_bq: int,
     min_gq: int,
     min_trim: float,
-    md_threshold: int,
     mismatch_window: int,
     max_mismatch_count: int,
-    germline_snp_prior: int,
-    chrom2recomb_lst: Dict[str, List[List[Tuple[str, int, str, str]]]],
-    chrom2recomb_statistics: Dict[str, List[int]],
-    chrom2recomb_candidate_lst: Dict[str, List[Tuple[str]]]
-) -> List[Tuple[str, int, str, str, int, int, int, float, float]]:
-
-      
-    counter = 0
-    m = LOG()
-    recomb_lst = []
-    co_seen = set()
-    ccs_seen = set()
-    nco_seen = set()
-    recomb_candidate_lst = []
-    hapfusion.gtlib.init(germline_snp_prior)
-    alignments = pysam.AlignmentFile(bam_file, "rb")
-    for (chrom, chunk_start, chunk_end) in chunkloci_lst: ## TODO
-        phase_set = str(chunk_start)
-        hbit_lst = ps2hbit_lst[phase_set] 
-        hpos_lst = ps2hpos_lst[phase_set] 
-        hetsnp_lst = ps2hetsnp_lst[phase_set] 
-        recombination_candidate_ccs_lst = [] 
-        rpos2basecounts, rpos2base2bq_lst, rpos2base2ccs_lst = init_allelecounts()
-        for i in alignments.fetch(chrom, chunk_start, chunk_end): ## collect candidates
-            m.ccs += 1
-            ccs = hapfusion.bamlib.BAM(i)
-            if not ccs.is_primary: 
-                continue
-            
-            update_basecounts(ccs, rpos2basecounts, rpos2base2bq_lst, rpos2base2ccs_lst)
-            if is_low_mapq(ccs.mapq, min_mapq):
-                continue
-            if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
-                continue
-
-            m.hq_ccs += 1 
-            ccs.cs2tpos2qbase() # o: ccs.rpos2qpos, ccs.tpos2qbase, ccs.mismatch_lst
-            hapfusion.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
-            if ccs.hap == ".":
-                m.unphased_ccs += 1
-                continue
-            elif is_ccs_phased(ccs.hap):
-                m.hap_consistent_ccs += 1
-                continue 
-            if ccs.qname in ccs_seen:
-                continue
-
-            ccs.hd, ccs.hidx_lst = get_hamming_distance(ccs.hap, ccs.h0_hbit, ccs.h1_hbit, ccs.hbit)
-            if not is_recombination_candidate(ccs.hd): # hd = 0
-                m.hap_denovo_phase_switch_mutation_ccs += 1 
-                continue
-            recombination_candidate_ccs_lst.append(ccs)
-            ccs.get_tcoord()
-           
-        hetsnp2phase_switch_count = get_phase_switch_count(recombination_candidate_ccs_lst)
-        for ccs in recombination_candidate_ccs_lst: ## iterate through candidates
-            if ccs.hd == 1:
-                hidx = ccs.hidx_lst[0]
-                hetsnp = ccs.hetsnp_lst[hidx]
-                if hetsnp in nco_seen:
-                    continue
-
-                nco_seen.add(hetsnp)
-                phase_switch_count = hetsnp2phase_switch_count[hetsnp]  
-                if is_denovo(phase_switch_count): # clonal de novo mutations
-                    m.hap_denovo_phase_switch_mutation_ccs += phase_switch_count
-                    continue     
-                              
-                rpos = hetsnp[0] - 1
-                m.hap_recombination_candidate_ccs += 1
-                hetsnp_gt = "{}{}".format(hetsnp[1], hetsnp[2]) 
-                recomb_state, recomb_length = get_nco_recomb_length(ccs, hidx)
-                snp_gt, snp_gq, snp_state = hapfusion.gtlib.get_germ_gt(hetsnp[1], rpos2base2bq_lst[rpos])
-                mut = ",".join(["{}:{}_{}/{}".format(ccs.tname, pos, ref, alt) for (pos, ref, alt) in ccs.hetsnp_lst])
-                recomb_candidate_lst.append(
-                    [
-                        ccs.tcoord,
-                        ccs.qname,
-                        ccs.hap,
-                        ccs.hbit,
-                        ccs.h0_hbit,
-                        ccs.h1_hbit,
-                    ]                    
-                )
-                
-                if not is_hetsnp(snp_gt, hetsnp_gt):
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname,
-                            snp_state,
-                            "NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit,
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit,
-                            mut,
-                        ]
-                    )
-                    continue
-                
-                bq = ccs.tpos2qbase[hetsnp[0]][1]
-                if is_low_bq(bq, min_bq):
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname,
-                            "LowBQ",
-                            "NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit,
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit,
-                            mut
-                        ]
-                    )
-                    continue
-                
-                if is_low_gq(snp_gq, min_gq):
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname,
-                            "LowGQ",
-                            "NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit,
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit,
-                            mut
-                        ]
-                    )
-                    continue
-               
-                basecounts = rpos2basecounts[rpos]
-                read_depth, indel_count = hapfusion.bamlib.get_read_depth(basecounts)
-                if indel_count > 0:
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname,
-                            "IndelSite",
-                            "NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit,
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit,
-                            mut
-                        ]
-                    )
-                    continue
-                
-                if read_depth > md_threshold:
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname,
-                            "HighDepth",
-                            "NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit,
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit,
-                            mut
-                        ]
-                    )
-                    continue
-                
-                qpos = ccs.rpos2qpos[rpos]
-                if is_trimmed(ccs, qpos, min_trim):
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname,
-                            "Trimmed",
-                            "NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit,
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit,
-                            mut
-                        ]
-                    )
-                    continue
-                
-                if is_mismatch_conflict(ccs, hetsnp[0], qpos, mismatch_window, max_mismatch_count):
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname,
-                            "MismatchCluster",
-                            "NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit,
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit,
-                            mut
-                        ]
-                    )
-                    continue
-                
-                if recomb_state:
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname, 
-                            "PASS", 
-                            "NCO",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit, 
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit, 
-                            mut
-                        ]
-                    )
-                    m.gene_conversion += 1
-                else:
-                    recomb_lst.append(
-                        [
-                            ccs.tcoord,
-                            ccs.qname, 
-                            "Indeterminate", 
-                            "CO_NCO_candidate",
-                            ccs.hap,
-                            "1",
-                            str(recomb_length),
-                            ccs.hbit, 
-                            ccs.h0_hbit, 
-                            ccs.h1_hbit, 
-                            mut
-                        ]
-                    )
-                    m.ambiguous += 1
-            else:
-                hidx_lst = list(range(ccs.hidx_lst[0], ccs.hidx_lst[-1] + 1))
-                ehd = len(hidx_lst) - 1
-                ucount = hidx_lst[0]
-                dcount = len(ccs.hetsnp_lst) - hidx_lst[-1] - 1  
-                recomb_length = get_co_cnco_recomb_length(ccs, hidx_lst)
-                ccs_hetsnp_bq_lst, ccs_hetsnp_base_lst = get_phase_switch_ccs_base(ccs)
-                mut = ",".join(["{}:{}_{}/{}".format(ccs.tname, pos, ref, alt) for (pos, ref, alt) in ccs.hetsnp_lst])
-                recomb_candidate_lst.append(
-                    [
-                        ccs.tcoord,
-                        ccs.qname,
-                        ccs.hap,
-                        ccs.hbit,
-                        ccs.h0_hbit,
-                        ccs.h1_hbit,
-                    ]                    
-                )
-                m.hap_recombination_candidate_ccs += 1
-                if ccs.hap == "0'":
-                    whd = get_weighted_hamming_distance(ccs.h0_hbit, ccs.hbit, ccs_hetsnp_bq_lst, hidx_lst)
-                elif ccs.hap == "1'":
-                    whd = get_weighted_hamming_distance(ccs.h1_hbit, ccs.hbit, ccs_hetsnp_bq_lst, hidx_lst)
-                elif ccs.hap == "2":
-                    continue
-              
-
-                if is_crossover(whd, ehd, ucount, dcount, recomb_length):
-                        recomb_lst.append(
-                            [
-                                ccs.tcoord,
-                                ccs.qname, 
-                                "PASS", 
-                                "CO",
-                                ccs.hap,
-                                str(whd),
-                                str(recomb_length),
-                                ccs.hbit, 
-                                ccs.h0_hbit, 
-                                ccs.h1_hbit, 
-                                mut
-                            ]
-                        )
-                        m.crossover += 1
-                        continue
-                if is_noncrossover(whd, ehd, ucount, dcount, recomb_length):
-                        recomb_lst.append(
-                            [
-                                ccs.tcoord,
-                                ccs.qname, 
-                                "PASS", 
-                                "CNCO",
-                                ccs.hap,
-                                str(whd),
-                                str(recomb_length),
-                                ccs.hbit, 
-                                ccs.h0_hbit, 
-                                ccs.h1_hbit, 
-                                mut
-                            ]
-                        )
-                        m.complex_gene_conversion += 1
-                        continue
-                recomb_lst.append(
-                    [
-                        ccs.tcoord,
-                        ccs.qname, 
-                        "Indeterminate", 
-                        "CO_NCO_candidate", 
-                        ccs.hap,
-                        str(whd),
-                        str(recomb_length),
-                        ccs.hbit, 
-                        ccs.h0_hbit, 
-                        ccs.h1_hbit, 
-                        mut
-                    ]
-                )                  
-                m.ambiguous += 1 
-            ccs_seen.add(ccs.qname)
-        counter += 1
-        if counter > 200:
-            break
-        
-        
-
-    m.lq_ccs = m.ccs - m.hq_ccs
-    m.hap_inconsistent_ccs = m.hq_ccs - (m.unphased_ccs + m.hap_consistent_ccs) 
-    chrom2recomb_lst[chrom] = recomb_lst 
-    chrom2recomb_statistics[chrom] = [
-        m.ccs,
-        m.lq_ccs,
-        m.hq_ccs,
-        m.unphased_ccs,
-        m.hap_consistent_ccs,
-        m.hap_inconsistent_ccs,
-        m.hap_denovo_phase_switch_mutation_ccs,
-        m.hap_recombination_candidate_ccs, 
-        m.ambiguous,
-        m.crossover,
-        m.gene_conversion,
-        m.complex_gene_conversion,
-    ]
-    chrom2recomb_candidate_lst[chrom] = recomb_candidate_lst
-    alignments.close()
-
-
-def dump_recombinations(
-    sample: str, 
-    version: str,
+    md_threshold: float,
+    germline_snp_prior: float,
+    threads: int,
     chrom_lst: List[str], 
     chrom2recomb_lst: Dict[str, List[Tuple[str]]],
+    version: str,
     out_file: str,
 ):
 
@@ -696,9 +338,65 @@ def dump_recombinations(
         "##source=hapfusion",
         "##source_version={}".format(version),
         "##content=hapfusion meiotic recombination",
-        "##sample={}".format(sample),
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format("tcoord", "qname", "state", "event", "haplotype", "hd/whd", "recombination_length", "ccs_hbit", "h0_hbit", "h1_hbit", "hetsnps")
-    ] 
+        "##sample={}".format(hapfusion.vcflib.get_sample(vcf_file)),
+        '##FILTER=<ID=PASS,Description="All filters passed">',
+        '##FILTER=<ID=LowBQ,Description="Base quality score is below the minimum base quality score of {}">'.format(
+            min_bq
+        ),
+        '##FILTER=<ID=LowGQ,Description="Germline genotype quality score is below the minimum genotype quality score of {}">'.format(
+            min_gq
+        ),
+        '##FILTER=<ID=HetAltSite,Description="HetSite is a HetAltSite">',
+        '##FILTER=<ID=HomAltSite,Description="HetSite is a HomAltSite">',
+        '##FILTER=<ID=HomRefSite,Description="HetSite is a HomRefSite">',
+        '##FILTER=<ID=IndelSite,Description="HetSite intersects an indel site">',
+        '##FILTER=<ID=HighDepth,Description="Read depth is above the maximum depth threshold of {:.1f}">'.format(
+            md_threshold
+        ),
+        '##FILTER=<ID=Trimmed,Description="Gene conversion is called near the end of a read">',
+        '##FILTER=<ID=MismatchCluster,Description="Gene conversion is adjacent to a mismatch within a given mismatch window">',
+        '##FILTER=<ID=Indeterminate,Description="CCS read can be either a crossover or a gene conversion">',
+    ]
+    
+    for tname in natsort.natsorted(list(tname2tsize.keys())):
+        header_lst.append(
+            "##contig=<ID={},length={}>".format(tname, tname2tsize[tname])
+        )
+
+    if region is None and region_list is not None:
+        region_param = "--region_list {}".format(region_list)
+    elif region is not None and region_list is None:
+        region_param = "--region {}".format(region)
+    elif region is not None and region_list is not None:
+        region_param = "--region_list {}".format(region_list)
+
+    param = "{} --min_mapq {} --qlen_lower_limit {} --qlen_upper_limit {} --min_gq {} --min_bq {} --min_trim {} --mismatch_window {} --max_mismatch_count {} --germline_snv_prior {} --threads {} -o {}".format(
+        region_param,
+        min_mapq,
+        qlen_lower_limit,
+        qlen_upper_limit,
+        min_gq,
+        min_bq,
+        min_trim,
+        mismatch_window,
+        max_mismatch_count,
+        germline_snp_prior,
+        threads,
+        out_file,
+    )
+    
+    cmdline = (
+        "##hapfusion_command=hapfusion call -i {} --vcf {} {}".format(
+            bam_file, 
+            vcf_file,
+            param
+        )
+    )
+    header_lst.append(cmdline)
+    header_lst.append(
+        "#{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format("coord", "qname", "phase_set", "state", "event", "haplotype", "hd/whd", "recombination_length", "ccs_hbit", "h0_hbit", "h1_hbit", "hetsnps", "denovo_mutations")
+    )
+    
     o.write("{}\n".format("\n".join(header_lst)))
     for chrom in chrom_lst:
         for recomb in chrom2recomb_lst[chrom]:
@@ -756,12 +454,402 @@ def dump_recombination_statistics(
         o.write("{:45}{}\n".format(row_names[k], "\t".join(rlst)))
     o.close()         
 
+
+def get_recombination(
+    bam_file: str,
+    ps2hbit_lst: Dict[str, List[str]],
+    ps2hpos_lst: Dict[int, List[int]],
+    ps2hetsnp_lst: Dict[int, List[Tuple[int, str, str]]], 
+    chunkloci_lst: List[Tuple[str, int, int]],
+    min_mapq: int,
+    min_sequence_identity: float,
+    min_alignment_proportion: float,
+    qlen_lower_limit: float,
+    qlen_upper_limit: float,
+    min_bq: int,
+    min_gq: int,
+    min_trim: float,
+    md_threshold: int,
+    mismatch_window: int,
+    max_mismatch_count: int,
+    germline_snp_prior: int,
+    chrom2recomb_lst: Dict[str, List[List[Tuple[str, int, str, str]]]],
+    chrom2recomb_statistics: Dict[str, List[int]],
+    chrom2recomb_candidate_lst: Dict[str, List[Tuple[str]]]
+) -> List[Tuple[str, int, str, str, int, int, int, float, float]]:
+
+      
+    counter = 0
+    m = LOG()
+    recomb_lst = []
+    co_seen = set()
+    ccs_seen = set()
+    nco_seen = set()
+    recomb_candidate_lst = []
+    hapfusion.gtlib.init(germline_snp_prior)
+    alignments = pysam.AlignmentFile(bam_file, "rb")
+    for (chrom, chunk_start, chunk_end) in chunkloci_lst: ## TODO
+        phase_set = str(chunk_start)
+        hbit_lst = ps2hbit_lst[phase_set] 
+        hpos_lst = ps2hpos_lst[phase_set] 
+        hetsnp_lst = ps2hetsnp_lst[phase_set] 
+        recombination_candidate_ccs_lst = [] 
+        rpos2basecounts, rpos2base2bq_lst, rpos2base2ccs_lst = init_allelecounts()
+        for i in alignments.fetch(chrom, chunk_start, chunk_end): ## collect candidates
+            ccs = hapfusion.bamlib.BAM(i)
+            if not ccs.is_primary: 
+                continue
+            
+            m.ccs += 1
+            update_basecounts(ccs, rpos2basecounts, rpos2base2bq_lst, rpos2base2ccs_lst)
+            if is_low_mapq(ccs.mapq, min_mapq):
+                continue
+            if not (qlen_lower_limit < ccs.qlen and ccs.qlen < qlen_upper_limit):
+                continue
+
+            m.hq_ccs += 1 
+            ccs.get_cs2tpos2qbase() # o: ccs.rpos2qpos, ccs.tpos2qbase, ccs.mismatch_lst
+            hapfusion.haplib.get_ccs_hap(ccs, hbit_lst, hpos_lst, hetsnp_lst)  
+            if ccs.hap == ".":
+                m.unphased_ccs += 1
+                continue
+            elif is_ccs_phased(ccs.hap):
+                m.hap_consistent_ccs += 1
+                continue 
+            if ccs.qname in ccs_seen:
+                continue
+
+            ccs.hd, ccs.hidx_lst = get_hamming_distance(ccs.hap, ccs.h0_hbit, ccs.h1_hbit, ccs.hbit)
+            if not is_recombination_candidate(ccs.hd): # hd = 0
+                m.hap_denovo_phase_switch_mutation_ccs += 1 
+                continue
+            recombination_candidate_ccs_lst.append(ccs)
+            ccs.get_tcoord()
+           
+        hetsnp2phase_switch_count = get_phase_switch_count(recombination_candidate_ccs_lst)
+        for ccs in recombination_candidate_ccs_lst: ## iterate through candidates
+            if ccs.hd == 1:
+                hidx = ccs.hidx_lst[0]
+                hetsnp = ccs.hetsnp_lst[hidx]
+                if hetsnp in nco_seen:
+                    continue
+
+                nco_seen.add(hetsnp)
+                phase_switch_count = hetsnp2phase_switch_count[hetsnp]  
+                if is_denovo(phase_switch_count): # clonal de novo mutations
+                    m.hap_denovo_phase_switch_mutation_ccs += phase_switch_count
+                    continue     
+                              
+                rpos = hetsnp[0] - 1
+                m.hap_recombination_candidate_ccs += 1
+                hetsnp_gt = "{}{}".format(hetsnp[1], hetsnp[2]) 
+                recomb_state, recomb_length = get_nco_recomb_length(ccs, hidx)
+                snp_gt, snp_gq, snp_state = hapfusion.gtlib.get_germ_gt(hetsnp[1], rpos2base2bq_lst[rpos])
+                mut = ",".join(["{}:{}_{}/{}".format(ccs.tname, pos, ref, alt) for (pos, ref, alt) in ccs.hetsnp_lst])
+                recomb_candidate_lst.append(
+                    [
+                        ccs.tcoord,
+                        ccs.qname,
+                        ccs.hap,
+                        ccs.hbit,
+                        ccs.h0_hbit,
+                        ccs.h1_hbit,
+                    ]                    
+                )
+                
+                if not is_hetsnp(snp_gt, hetsnp_gt):
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname,
+                            phase_set,
+                            snp_state,
+                            "NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit,
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit,
+                            mut,
+                            "."
+                        ]
+                    )
+                    continue
+                
+                bq = ccs.tpos2qbase[hetsnp[0]][1]
+                if is_low_bq(bq, min_bq):
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname,
+                            phase_set,
+                            "LowBQ",
+                            "NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit,
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit,
+                            mut,
+                            "."
+                        ]
+                    )
+                    continue
+                
+                if is_low_gq(snp_gq, min_gq):
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname,
+                            "LowGQ",
+                            "NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit,
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit,
+                            mut,
+                            "."
+                        ]
+                    )
+                    continue
+               
+                basecounts = rpos2basecounts[rpos]
+                read_depth, indel_count = hapfusion.bamlib.get_read_depth(basecounts)
+                if indel_count > 0:
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname,
+                            phase_set,
+                            "IndelSite",
+                            "NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit,
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit,
+                            mut,
+                            "."
+                        ]
+                    )
+                    continue
+                
+                if read_depth > md_threshold:
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname,
+                            phase_set,
+                            "HighDepth",
+                            "NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit,
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit,
+                            mut,
+                            "."
+                        ]
+                    )
+                    continue
+                
+                qpos = ccs.rpos2qpos[rpos]
+                if is_trimmed(ccs, qpos, min_trim):
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname,
+                            phase_set,
+                            "Trimmed",
+                            "NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit,
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit,
+                            mut,
+                            "."
+                        ]
+                    )
+                    continue
+                
+                if is_mismatch_conflict(ccs, hetsnp[0], qpos, mismatch_window, max_mismatch_count):
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname,
+                            phase_set,
+                            "MismatchCluster",
+                            "NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit,
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit,
+                            mut
+                        ]
+                    )
+                    continue
+                
+                if recomb_state:
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname, 
+                            phase_set,
+                            "PASS", 
+                            "NCO",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit, 
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit, 
+                            mut,
+                            "."
+                        ]
+                    )
+                    m.gene_conversion += 1
+                else:
+                    recomb_lst.append(
+                        [
+                            ccs.tcoord,
+                            ccs.qname, 
+                            phase_set,
+                            "Indeterminate", 
+                            "CO_NCO_candidate",
+                            ccs.hap,
+                            "1",
+                            str(recomb_length),
+                            ccs.hbit, 
+                            ccs.h0_hbit, 
+                            ccs.h1_hbit, 
+                            mut,
+                            "."
+                        ]
+                    )
+                    m.ambiguous += 1
+            else:
+                hidx_lst = list(range(ccs.hidx_lst[0], ccs.hidx_lst[-1] + 1))
+                ehd = len(hidx_lst) - 1
+                ucount = hidx_lst[0]
+                dcount = len(ccs.hetsnp_lst) - hidx_lst[-1] - 1  
+                recomb_length = get_co_cnco_recomb_length(ccs, hidx_lst)
+                ccs_hetsnp_bq_lst, ccs_hetsnp_base_lst = get_phase_switch_ccs_base(ccs)
+                mut = ",".join(["{}:{}_{}/{}".format(ccs.tname, pos, ref, alt) for (pos, ref, alt) in ccs.hetsnp_lst])
+                recomb_candidate_lst.append(
+                    [
+                        ccs.tcoord,
+                        ccs.qname,
+                        ccs.hap,
+                        ccs.hbit,
+                        ccs.h0_hbit,
+                        ccs.h1_hbit,
+                    ]                    
+                )
+                m.hap_recombination_candidate_ccs += 1
+                if ccs.hap == "0'":
+                    whd = get_weighted_hamming_distance(ccs.h0_hbit, ccs.hbit, ccs_hetsnp_bq_lst, hidx_lst)
+                elif ccs.hap == "1'":
+                    whd = get_weighted_hamming_distance(ccs.h1_hbit, ccs.hbit, ccs_hetsnp_bq_lst, hidx_lst)
+                elif ccs.hap == "2":
+                    continue
+              
+
+                if is_crossover(whd, ehd, ucount, dcount, recomb_length):
+                        recomb_lst.append(
+                            [
+                                ccs.tcoord,
+                                ccs.qname, 
+                                phase_set,
+                                "PASS", 
+                                "CO",
+                                ccs.hap,
+                                str(whd),
+                                str(recomb_length),
+                                ccs.hbit, 
+                                ccs.h0_hbit, 
+                                ccs.h1_hbit, 
+                                mut,
+                                "."
+                            ]
+                        )
+                        m.crossover += 1
+                        continue
+                if is_noncrossover(whd, ehd, ucount, dcount, recomb_length):
+                        recomb_lst.append(
+                            [
+                                ccs.tcoord,
+                                ccs.qname,
+                                phase_set, 
+                                "PASS", 
+                                "CNCO",
+                                ccs.hap,
+                                str(whd),
+                                str(recomb_length),
+                                ccs.hbit, 
+                                ccs.h0_hbit, 
+                                ccs.h1_hbit, 
+                                mut,
+                                ","
+                            ]
+                        )
+                        m.complex_gene_conversion += 1
+                        continue
+                recomb_lst.append(
+                    [
+                        ccs.tcoord,
+                        ccs.qname,
+                        phase_set, 
+                        "Indeterminate", 
+                        "CO_NCO_candidate", 
+                        ccs.hap,
+                        str(whd),
+                        str(recomb_length),
+                        ccs.hbit, 
+                        ccs.h0_hbit, 
+                        ccs.h1_hbit, 
+                        mut,
+                        ".",
+                    ]
+                )                  
+                m.ambiguous += 1 
+            ccs_seen.add(ccs.qname)
+        
+    m.lq_ccs = m.ccs - m.hq_ccs
+    m.hap_inconsistent_ccs = m.hq_ccs - (m.unphased_ccs + m.hap_consistent_ccs) 
+    chrom2recomb_lst[chrom] = recomb_lst 
+    chrom2recomb_statistics[chrom] = [
+        m.ccs,
+        m.lq_ccs,
+        m.hq_ccs,
+        m.unphased_ccs,
+        m.hap_consistent_ccs,
+        m.hap_inconsistent_ccs,
+        m.hap_denovo_phase_switch_mutation_ccs,
+        m.hap_recombination_candidate_ccs, 
+        m.ambiguous,
+        m.crossover,
+        m.gene_conversion,
+        m.complex_gene_conversion,
+    ]
+    chrom2recomb_candidate_lst[chrom] = recomb_candidate_lst
+    alignments.close()
+
         
 def call_recombinations(
     bam_file: str,
     vcf_file: str,
     region: str,
-    region_lst: str,
+    region_list: str,
     min_mapq: int,
     min_sequence_identity: float,
     min_alignment_proportion: float,
@@ -778,8 +866,8 @@ def call_recombinations(
 
     # init
     cpu_start = time.time() / 60
-    _, tname2tsize = himut.bamlib.get_tname2tsize(bam_file)
-    chrom_lst = himut.util.load_loci(region, region_lst, tname2tsize)[0]
+    tname2tsize = himut.bamlib.get_tname2tsize(bam_file)[1]
+    chrom_lst = himut.util.load_loci(region, region_list, tname2tsize)[0]
     hapfusion.util.check_caller_input_exists(
         bam_file,
         vcf_file,
@@ -793,7 +881,7 @@ def call_recombinations(
         chrom2ps2hetsnp_lst,
         chrom2chunkloci_lst,
     ) = himut.vcflib.load_phased_hetsnps(vcf_file, chrom_lst, tname2tsize)
-    qlen_lower_limit, qlen_upper_limit, md_threshold = himut.bamlib.get_thresholds(bam_file, chrom_lst, tname2tsize)
+    qlen_lower_limit, qlen_upper_limit, md_threshold = hapfusion.bamlib.get_thresholds(bam_file, chrom_lst, tname2tsize)
 
     # start 
     print("hapfusion is calling crossovers and gene conversions with {} threads".format(threads))
@@ -834,12 +922,30 @@ def call_recombinations(
     p.join()
     # end
     
-    sample = hapfusion.vcflib.get_sample(vcf_file)
-    dump_recombinations(sample, version, chrom_lst, chrom2recomb_lst, out_file)
-    dump_recombination_candidates(chrom_lst, chrom2recomb_candidate_lst)
+    dump_recombinations(
+        bam_file,
+        vcf_file,
+        region,
+        region_list,
+        tname2tsize,
+        min_mapq,
+        qlen_lower_limit,
+        qlen_upper_limit,
+        min_bq,
+        min_gq,
+        min_trim,
+        mismatch_window,
+        max_mismatch_count,
+        md_threshold,
+        germline_snp_prior,
+        threads,
+        chrom_lst, 
+        chrom2recomb_lst, 
+        version,
+        out_file
+    )
     dump_recombination_statistics(chrom_lst, chrom2recomb_statistics)
-    
-    # hapfusion.imglib.dump_hapfusion_pdf(sample, chrom_lst, chrom2hapfusion_lst, pdf_dir)
+    dump_recombination_candidates(chrom_lst, chrom2recomb_candidate_lst)
     print("hapfusion finished calling crossover and gene conversions")
     cpu_end = time.time() / 60
     duration = cpu_end - cpu_start

@@ -43,7 +43,7 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         "--bam",
         type=str,
         required=True,
-        help="minimap2 (parameters: -ax map-hifi --cs=short) aligned SAM/BAM files"
+        help="minimap2 CCS read alignments (BAM file) to read",
     )
     parser_call.add_argument(
         "--vcf",
@@ -132,23 +132,16 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         type=int,
         default=1,
         required=False,
-        help="maximum number of threads to be used"
+        help="number of threads to use"
     )
-    # parser_call.add_argument(
-    #     "--dir",
-    #     type=str,
-    #     default="pdf",
-    #     required=False,
-    #     help="directory to return PDF files"
-    # )
     parser_call.add_argument(
         "-o",
         "--out",
         type=str,
         required=True,
-        help="TSV file to write the gene conversions"
+        help="file to write the meiotic recombinations"
     )
-    # subcommands: call
+    # subcommands: plot
     parser_plot = subparsers.add_parser(
         "plot",
         formatter_class=make_wide(argparse.ArgumentDefaultsHelpFormatter, w=180, h=60),
@@ -156,10 +149,22 @@ def parse_args(program_version, arguments=sys.argv[1:]):
     )
     parser_plot.add_argument(
         "-i",
-        "--input",
+        "--bam",
         type=str,
         required=True,
-        help="input file with hapfusion meiotic recombniation coordinates"
+        help="minimap2 CCS read alignments (BAM file) to read",
+    )
+    parser_plot.add_argument(
+        "--vcf",
+        type=str,
+        required=True,
+        help="phased deepvariant VCF file" 
+    )
+    parser_plot.add_argument(
+        "--fusion",
+        type=str,
+        required=True,
+        help="file to read meiotic recombination coordinates"
     )
     parser_plot.add_argument(
         "--region",
@@ -174,11 +179,19 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="list of target chromosomes separated by new line"
     )
     parser_plot.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=1,
+        required=False,
+        help="number of threads to use"
+    )
+    parser_plot.add_argument(
         "-o",
-        "--output",
+        "--pdf",
         type=str,
         required=True,
-        help="directory to return PDF files"
+        help="output directory to return PDF files"
     )
     # subcommands: phase
     parser_phase = subparsers.add_parser(

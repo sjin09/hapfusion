@@ -1,6 +1,6 @@
 import bisect
-from collections import defaultdict
 from typing import Dict, List, Tuple
+hap_lst = ["0", "1", "2"] 
 bit_complement_hsh = {"0": "1", "1": "0", "-": "-"}
 
 

@@ -14,6 +14,28 @@ allele2idx = {allele: idx for idx, allele in enumerate(allele_lst)}
 idx2allele = {idx: allele for idx, allele in enumerate(allele_lst)}
 
 
+class FUSION:
+    def __init__(self, line):
+        arr = line.strip().split()
+        coord = arr[0] 
+        self.tname = coord.split(":")[0]
+        self.tstart, self.tend = coord.split(":")[1].split("-")
+        self.tstart = int(self.tstart)
+        self.tend = int(self.tend)
+        self.qname = arr[1]
+        self.phase_set = arr[2]
+        self.is_pass = True if arr[3] == "PASS" else False
+        self.event = arr[4] 
+        self.haplotype = arr[5]
+        self.hd = float(arr[6]) if arr[6] != "." else "."
+        self.recomb_length = int(arr[7]) if arr[7] != "." else "."
+        self.ccs_hbit = arr[8]
+        self.h0_hbit = arr[9]
+        self.h1_hbit = arr[10]
+        self.hetsnps = arr[11]
+        # self.denovo_mutations = arr[12]
+
+
 def exit():
     print("exiting hapfusion")
     sys.exit(0)
@@ -78,7 +100,7 @@ def check_bam_file(
 
 
 def is_vcf_file_corrupt(
-    param: str, vcf_file: str, chrom_lst: List[str], tname2tsize: Dict[str, int]
+    vcf_file: str, chrom_lst: List[str], tname2tsize: Dict[str, int]
 ) -> bool:
 
     hsh = defaultdict(lambda: 0)
@@ -106,28 +128,20 @@ def is_vcf_file_corrupt(
     state = 0
     for chrom in chrom_lst:
         if hsh[chrom] == 0:
-            print(
-                "{} {} does not have any variants on chrom: {}".format(
-                    param, vcf_file, chrom
-                )
-            )
+            print("{} does not have any variants on chrom: {}".format(vcf_file, chrom))
             state = 1
     if state == 1:
-        print("{} {} might be corrupted".format(param, vcf_file))
+        print("{} might be corrupted".format(vcf_file))
         return 1
     else:
         return 0
 
 
 def check_vcf_file(
-    param: str, vcf_file: str, chrom_lst: List[str], tname2tsize: Dict[str, int]
+    vcf_file: str, chrom_lst: List[str], tname2tsize: Dict[str, int]
 ):
     if vcf_file is None:
-        print(
-            "Please provide the path to the VCF file for the following argument: {}".format(
-                param
-            )
-        )
+        print("Please provide the path to the VCF file for the following argument: --vcf")
         return 1
     else:
         if os.path.exists(vcf_file):
@@ -135,34 +149,76 @@ def check_vcf_file(
                 if os.path.getsize(vcf_file) == 0:
                     return 1
                 else:
-                    if is_vcf_file_corrupt(param, vcf_file, chrom_lst, tname2tsize):
+                    if is_vcf_file_corrupt(vcf_file, chrom_lst, tname2tsize):
                         return 0
                     return 0
             elif vcf_file.endswith(".bgz"):
                 tbi_file = vcf_file + ".tbi"
                 if os.path.exists(tbi_file):
-                    if is_vcf_file_corrupt(param, vcf_file, chrom_lst, tname2tsize):
+                    if is_vcf_file_corrupt(vcf_file, chrom_lst, tname2tsize):
                         return 0
                     return 0
                 else:
                     print(
-                        "tabix index file does not exist {} {}".format(param, vcf_file)
+                        "tabix index file does not exist for {}".format(vcf_file)
                     )
                     return 1
             elif vcf_file.endswith(".gz"):
-                print(
-                    "hapfusion doesn't support loading of gzip compressed VCF files {} {}".format(
-                        param, vcf_file
-                    )
-                )
+                print("hapfusion doesn't support loading of gzip compressed VCF files {}".format(vcf_file))
                 return 1
             else:
                 print(
-                    "VCF file must have the .vcf suffix {} {}".format(param, vcf_file)
+                    "VCF file must have the .vcf suffix {}".format(vcf_file)
                 )
                 return 1
         else:
-            print("{} {} file is missing".format(param, vcf_file))
+            print("{} file is missing".format(vcf_file))
+            return 1
+
+
+def is_recomb_file_corrupt(
+    recomb_file: str, 
+    chrom_lst: List[str], 
+):
+
+    hsh = defaultdict(lambda: 0)
+    for line in open(recomb_file):
+        if line.startswith("#"):
+            continue
+        fusion = FUSION(line)
+        if fusion.is_pass: 
+            hsh[fusion.tname] += 1
+
+    state = 0
+    for chrom in chrom_lst:
+        if hsh[chrom] == 0:
+            print("{} does not have any variants on chrom: {}".format(recomb_file, chrom))
+            state = 1
+            
+    if state == 1:
+        print("{} might be corrupted".format(recomb_file))
+        return 1
+    else:
+        return 0
+
+
+def check_recomb_file(
+    recomb_file: str, 
+    chrom_lst: List[str], 
+):
+    if recomb_file is None:
+        print("Please provide the path to the VCF file for the following argument: --fusion")
+        return 1
+    else:
+        if os.path.exists(recomb_file):
+            if os.path.getsize(recomb_file) == 0:
+                return 1
+            else:
+                if is_recomb_file_corrupt(recomb_file, chrom_lst):
+                    return 0
+                return 0
+        else:
+            print("{} file is missing".format(recomb_file))
             return 1
 
 
@@ -256,7 +312,7 @@ def check_caller_input_exists(
 
     counter = 0
     counter += check_bam_file(bam_file, chrom_lst)
-    counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
+    counter += check_vcf_file(vcf_file, chrom_lst, tname2tsize)
     counter += check_out_file(out_file)
     if counter > 0:
         print("One or more inputs and parameters are missing")
@@ -274,7 +330,7 @@ def check_phaser_input_exists(
 
     counter = 0
     counter += check_bam_file(bam_file, chrom_lst)
-    counter += check_vcf_file("--vcf", vcf_file, chrom_lst, tname2tsize)
+    counter += check_vcf_file(vcf_file, chrom_lst, tname2tsize)
     counter += check_out_file(out_file)
     if not out_file.endswith(".phased.vcf"):
         print("Please use the suffix .phased.vcf for the output file")
@@ -284,4 +340,23 @@ def check_phaser_input_exists(
         print("One or more inputs and parameters are missing")
         print("Please provide the correct inputs and parameters")
         exit()
+
+
+def check_plot_input_exists(
+    bam_file: str,
+    vcf_file: str,
+    recomb_file: str,
+    chrom_lst: List[str],
+    tname2tsize: Dict[str, int],
+):
+
+    counter = 0
+    counter += check_bam_file(bam_file, chrom_lst)
+    counter += check_recomb_file(recomb_file, chrom_lst)
+    counter += check_vcf_file(vcf_file, chrom_lst, tname2tsize)
+    if counter > 0:
+        print("One or more inputs and parameters are missing")
+        print("Please provide the correct inputs and parameters")
+        exit()
+
 

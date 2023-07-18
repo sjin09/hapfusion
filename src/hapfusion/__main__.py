@@ -8,6 +8,7 @@ import himut.phaselib
 import hapfusion.caller
 from hapfusion.parse_args import parse_args
 
+
 def main():
     parser, options = parse_args(program_version=__version__)
     if options.sub == "call": # return gene conversions
@@ -31,11 +32,14 @@ def main():
             options.out, # output 
         )
     elif options.sub == "plot": # returns phased hetsnps
-        himut.phaselib.dump_hapfusion_plot(
-            options.input, 
+        hapfusion.imglib.parallel_dump_recombination_plot(
+            options.bam, 
+            options.vcf, 
+            options.fusion, 
             options.region, 
             options.region_list,
-            options.output
+            options.threads,
+            options.pdf
         )
     elif options.sub == "phase": # returns phased hetsnps
         himut.phaselib.get_chrom_hblock(
