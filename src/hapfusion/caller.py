@@ -603,6 +603,7 @@ def get_recombination(
                         [
                             ccs.tcoord,
                             ccs.qname,
+                            phase_set,
                             "LowGQ",
                             "NCO_candidate",
                             ccs.hap,
