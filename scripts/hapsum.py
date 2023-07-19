@@ -198,6 +198,7 @@ def load_phased_set(
     return chrom2phase_set2hpos_lst
 
 def get_hapsum(
+    sample: str,
     vcf_file: str,
     chrom_lst: List[str],
     tname2tsize: Dict[str, int]
@@ -209,7 +210,7 @@ def get_hapsum(
         for phase_set in chrom2phase_set2hpos_lst[chrom]:
             hpos_lst = chrom2phase_set2hpos_lst[chrom][phase_set]
             hapsum += (hpos_lst[-1] - hpos_lst[0])
-    print(hapsum) 
+    print(sample, hapsum) 
 
 
 def dump_hapsum(
@@ -226,7 +227,7 @@ def dump_hapsum(
     sample = get_sample(vcf_file)
     tname2tsize = get_tname2tsize(vcf_file)
     chrom_lst = load_chrom_lst(region, region_file)
-    get_hapsum(vcf_file, chrom_lst, tname2tsize)
+    get_hapsum(sample, vcf_file, chrom_lst, tname2tsize)
     # get_hapsum_arg_lst = [
     #     (
     #         chrom,
