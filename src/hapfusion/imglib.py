@@ -235,6 +235,32 @@ class CANVAS():
         )
 
 
+def get_ccs_hpos_xcoord(
+    hap: str, 
+    state: str, 
+    ccs_hbit: str, 
+    ccs_hpos_lst: List[int],
+    canvas: CANVAS, 
+    region: REGION, 
+):
+
+    if hap == "0":
+        if state == "recombination":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap0_recombination_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+        elif state == "hap_consistent": 
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), "black") for hpos in ccs_hpos_lst]
+        elif state == "hap_inconsistent":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap_inconsistent_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+    else: # hap == 1
+        if state == "recombination":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap1_recombination_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+        elif state == "hap_consistent": 
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), "white") for hpos in ccs_hpos_lst]
+        elif state == "hap_inconsistent":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap_inconsistent_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+    return ccs_hpos_x1_lst
+
+
 def load_recombination(recomb_file: str):
 
     chrom2recomb_lst = defaultdict(list)
@@ -297,9 +323,7 @@ def load_recombination_region_ccs(
                     ccs2state[ccs.qname] = "hap_ambiguous"
                     hap2ccs_lst[ccs.hap].append(ccs.qname)
                 else:
-                    if qname != ccs.qname:
-                        ccs2state[ccs.qname] = "hap_inconsistent"
-                    else:
+                    if qname == ccs.qname:
                         ccs2state[ccs.qname] = "recombination"
                         q, r = divmod(len(ccs.hetsnp_lst), 2)
                         if r == 0:
@@ -308,10 +332,11 @@ def load_recombination_region_ccs(
                             grid_center = int((upos + dpos)/2)
                         else:
                             grid_center = ccs.hetsnp_lst[q][0]
+                    else:
+                        ccs2state[ccs.qname] = "hap_inconsistent"
                     hap2ccs_lst[ccs.hap[0]].append(ccs.qname)
             tend_lst.append(ccs.tend)
             tstart_lst.append(ccs.tstart)
-            
         hetsnp_lst = natsort.natsorted(list(set(hetsnp_lst)))
         grid_end = max(tend_lst)
         grid_start = min(tstart_lst)
@@ -399,32 +424,6 @@ def svg2pdf(svgin, pdfout):
     renderPDF.drawToFile(drawing, pdfout)
 
 
-def get_ccs_hpos_xcoord(
-    hap: str, 
-    state: str, 
-    ccs_hbit: str, 
-    ccs_hpos_lst: List[int],
-    canvas: CANVAS, 
-    region: REGION, 
-):
-
-    if hap == "0":
-        if state == "recombination":
-            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap0_recombination_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
-        elif state == "hap_consistent": 
-            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), "black") for hpos in ccs_hpos_lst]
-        elif state == "hap_inconsistent":
-            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap_inconsistent_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
-    else: # hap == 1
-        if state == "recombination":
-            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap1_recombination_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
-        elif state == "hap_consistent": 
-            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), "white") for hpos in ccs_hpos_lst]
-        elif state == "hap_inconsistent":
-            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap_inconsistent_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
-    return ccs_hpos_x1_lst
-
-
 def dump_recombination_plot(
     sample: str,
     pdf_dir: str, 
@@ -432,6 +431,7 @@ def dump_recombination_plot(
 ):
 
     for i in recomb_region_ccs_lst: ## iterate through each recombination event
+        counter = 0
         title = TITLE()
         canvas = CANVAS()
         region = REGION(i)
@@ -442,13 +442,11 @@ def dump_recombination_plot(
         dwg = get_dwg(canvas.width, canvas.height, svg_out) # get a blankpage 
         ruler.draw_ruler(dwg, region, canvas) 
         title.write_title(dwg, sample, region, canvas)
-
-        counter = 0 
-        for i, hap in enumerate(hapfusion.haplib.hap_lst): # plotting CCS reads
-            counter += i
+        for j, hap in enumerate(hapfusion.haplib.hap_lst): # for each haplotype
+            counter += j
             if hap == "2":
-                continue 
-            for ccs in region.hap2ccs_lst[hap]:  
+                continue
+            for ccs in region.hap2ccs_lst[hap]: ## for each CCS read
                 state = region.ccs2state[ccs]  # hap_consistent, hap_inconsistent, hap_ambiguous, recombination
                 ccs_start, ccs_end  = region.ccs2coord[ccs] 
                 ccs_x1 = canvas.get_xcoord(ccs_start, region) 
@@ -465,9 +463,9 @@ def dump_recombination_plot(
                 ) 
                 for (hpos_x1, hpos_fill) in ccs_hpos_x1_lst:
                     canvas.draw_circle(dwg, hpos_x1, hpos_y1, hpos_fill)
+                counter += 1
         dwg.save()
         svg2pdf(svg_out, pdf_out)     
-
 
 
 def parallel_dump_recombination_plot(
