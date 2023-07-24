@@ -15,6 +15,9 @@ from svglib.svglib import svg2rlg
 from collections import defaultdict
 from typing import Dict, List, Tuple
 from reportlab.graphics import renderPDF
+hap_inconsistent_fill = {"0": "black", "1": "white", "2": "blue", "-": "grey"}
+hap0_recombination_fill = {"0": "black", "1": "red", "2": "blue", "-": "grey"}
+hap1_recombination_fill = {"0": "red", "1": "white", "2": "blue", "-": "grey"}
 
 
 class REGION:
@@ -396,6 +399,32 @@ def svg2pdf(svgin, pdfout):
     renderPDF.drawToFile(drawing, pdfout)
 
 
+def get_ccs_hpos_xcoord(
+    hap: str, 
+    state: str, 
+    ccs_hbit: str, 
+    ccs_hpos_lst: List[int],
+    canvas: CANVAS, 
+    region: REGION, 
+):
+
+    if hap == "0":
+        if state == "recombination":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap0_recombination_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+        elif state == "hap_consistent": 
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), "black") for hpos in ccs_hpos_lst]
+        elif state == "hap_inconsistent":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap_inconsistent_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+    else: # hap == 1
+        if state == "recombination":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap1_recombination_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+        elif state == "hap_consistent": 
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), "white") for hpos in ccs_hpos_lst]
+        elif state == "hap_inconsistent":
+            ccs_hpos_x1_lst = [(canvas.get_xcoord(hpos, region), hap_inconsistent_fill[hbit]) for (hbit, hpos) in zip(ccs_hbit, ccs_hpos_lst)]
+    return ccs_hpos_x1_lst
+
+
 def dump_recombination_plot(
     sample: str,
     pdf_dir: str, 
@@ -416,66 +445,26 @@ def dump_recombination_plot(
 
         counter = 0 
         for i, hap in enumerate(hapfusion.haplib.hap_lst): # plotting CCS reads
-            counter += i 
+            counter += i
+            if hap == "2":
+                continue 
             for ccs in region.hap2ccs_lst[hap]:  
-                jdx_lst = []
-                ccs_hpos_fill_lst = []
-                ccs_cross_fill_lst = []
                 state = region.ccs2state[ccs]  # hap_consistent, hap_inconsistent, hap_ambiguous, recombination
-                ccs_hbit = region.ccs2hbit[ccs]
-                hetsnp_count = len(ccs_hbit)
-                ccs_hpos_lst = region.ccs2hpos_lst[ccs]
                 ccs_start, ccs_end  = region.ccs2coord[ccs] 
                 ccs_x1 = canvas.get_xcoord(ccs_start, region) 
                 ccs_x2 = canvas.get_xcoord(ccs_end, region) 
                 ccs_y1 = ccs_y2 = hpos_y1 = (counter * canvas.ccs_yd) + canvas.height_y1
                 canvas.draw_line(dwg, ccs_x1, ccs_y1, ccs_x2, ccs_y2)
-                ccs_hpos_x0_lst = [canvas.get_xcoord(hpos, region) for hpos in ccs_hpos_lst]
-                if hap == "0" and state == "hap_consistent":
-                    ccs_hpos_x1_lst = ccs_hpos_x0_lst 
-                    ccs_hpos_fill_lst = ["black"] * hetsnp_count
-                elif hap == "0" and state == "hap_inconsistent":
-                    for j, k in enumerate(ccs_hbit):
-                        if k == "0":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("black")
-                        elif k == "1":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("white")     
-                    ccs_hpos_x1_lst = [ccs_hpos_x0_lst[j] for j in jdx_lst]
-                elif hap == "0" and state == "recombination":
-                    for j, k in enumerate(ccs_hbit):
-                        if k == "0":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("black")
-                        elif k == "1":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("red")     
-                    ccs_hpos_x1_lst = [ccs_hpos_x0_lst[j] for j in jdx_lst]
-                elif hap == "1" and state == "hap_consistent":
-                    ccs_hpos_x1_lst = ccs_hpos_x0_lst 
-                    ccs_hpos_fill_lst = ["white"] * hetsnp_count
-                elif hap == "1" and state == "hap_inconsistent":
-                    for j, k in enumerate(ccs_hbit):
-                        if k == "1":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("white")
-                        elif k == "0":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("black")     
-                    ccs_hpos_x1_lst = [ccs_hpos_x0_lst[j] for j in jdx_lst]
-                elif hap == "1" and state == "recombination":
-                    for j, k in enumerate(ccs_hbit):
-                        if k == "1":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("white")
-                        elif k == "0":
-                            jdx_lst.append(j)
-                            ccs_hpos_fill_lst.append("red")     
-                    ccs_hpos_x1_lst = [ccs_hpos_x0_lst[j] for j in jdx_lst]
-                for (hpos_x1, hpos_fill) in zip(ccs_hpos_x1_lst, ccs_hpos_fill_lst): # draw circle
+                ccs_hpos_x1_lst = get_ccs_hpos_xcoord(
+                    hap, 
+                    state, 
+                    region.ccs2hbit[ccs],
+                    region.ccs2hpos_lst[ccs], 
+                    canvas, 
+                    region
+                ) 
+                for (hpos_x1, hpos_fill) in ccs_hpos_x1_lst:
                     canvas.draw_circle(dwg, hpos_x1, hpos_y1, hpos_fill)
-                counter += 1       
         dwg.save()
         svg2pdf(svg_out, pdf_out)     
 
@@ -483,11 +472,13 @@ def dump_recombination_plot(
 
 def parallel_dump_recombination_plot(
     bam_file: str,
+    bed_file: str,
     vcf_file: str, 
     recomb_file: str, 
     region: str, 
     region_list: str,
     threads: int,
+    debug: bool, ## TODO
     pdf_dir: str
 ):
 
@@ -515,7 +506,6 @@ def parallel_dump_recombination_plot(
         tname2tsize,
         threads,
     )
-    
     p = mp.Pool(threads)
     dump_recombination_plot_arg_lst = [
         (
@@ -525,25 +515,26 @@ def parallel_dump_recombination_plot(
         )
         for chrom in chrom_lst
     ]
-    # dump_hapfusion_candidate_plot_arg_lst = [
-    #     (
-    #         bam_file,
-    #         chrom2recomb_candidate_lst[chrom],
-    #         chrom2ps2hbit_lst[chrom],
-    #         chrom2ps2hpos_lst[chrom],
-    #         chrom2ps2hetsnp_lst[chrom], 
-    #         chrom2chunkloci_lst[chrom],
-    #         outdir
-    #     )
-    #     for chrom in chrom_lst
-    # ]
-
     p.starmap(
         dump_recombination_plot, dump_recombination_plot_arg_lst,
     )
-    # p.starmap(
-    #     dump_recombination_plot, dump_recombination_candidate_plot_arg_lst,
-    # )
+
+    # if debug:
+    #     dump_hapfusion_candidate_plot_arg_lst = [
+    #         (
+    #             bam_file,
+    #             chrom2recomb_candidate_lst[chrom],
+    #             chrom2ps2hbit_lst[chrom],
+    #             chrom2ps2hpos_lst[chrom],
+    #             chrom2ps2hetsnp_lst[chrom], 
+    #             chrom2chunkloci_lst[chrom],
+    #             outdir
+    #         )
+    #         for chrom in chrom_lst
+    #     ]
+    #     p.starmap(
+    #         dump_recombination_plot, dump_recombination_candidate_plot_arg_lst,
+    #     )
     p.close()
     p.join()
     # end

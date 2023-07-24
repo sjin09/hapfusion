@@ -33,12 +33,14 @@ def main():
         )
     elif options.sub == "plot": # returns phased hetsnps
         hapfusion.imglib.parallel_dump_recombination_plot(
-            options.bam, 
+            options.bam,
+            options.bed, 
             options.vcf, 
             options.fusion, 
             options.region, 
             options.region_list,
             options.threads,
+            options.debug,
             options.pdf
         )
     elif options.sub == "phase": # returns phased hetsnps

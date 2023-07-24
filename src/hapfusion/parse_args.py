@@ -155,6 +155,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         help="minimap2 CCS read alignments (BAM file) to read",
     )
     parser_plot.add_argument(
+        "--bed",
+        type=str,
+        required=False,
+        help="BED file with coordinates of repeats",
+    )
+    parser_plot.add_argument(
         "--vcf",
         type=str,
         required=True,
@@ -185,6 +191,12 @@ def parse_args(program_version, arguments=sys.argv[1:]):
         default=1,
         required=False,
         help="number of threads to use"
+    )
+    parser_plot.add_argument( ## TODO
+        "--debug",
+        required=False,
+        action="store_true",
+        help="debug",
     )
     parser_plot.add_argument(
         "-o",
