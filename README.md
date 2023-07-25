@@ -8,54 +8,49 @@ cd hapfusion
 
 ## use miniamp2 and samtools to align, sort (and merge) PacBio CCS read alignments
 minimap2 "@RG\tSM:sample" -ax map-hifi --cs ref.fa pacbio.ccs.fastq.gz | samtools sort -o aln.sorted.bam # SM tag must be provided to retrieve sample ID
+samtools merge *.sorted.bam | samtools sort -o aln.mergeSorted.bam - ## if there are multiple BAM files, merge and sort the BAM files 
 samtools view -bh -F 0x900 aln.sorted.bam > aln.primary_alignments.sorted.bam # select primary alignments
-samtools index aln.primary_alignments.sorted.bam
-samtools merge *.primary_alignments.sorted.bam | samtools sort -o aln.primary_alignments.mergeSorted.bam -
-samtools index aln.primary_alignments.mergeSorted.bam 
+samtools index aln.sorted.bam
+samtools index aln.primary_alignments.sorted.bam 
 
 ## use deepvariant to call germline mutations
 deepvariant.simg /opt/deepvariant/bin/run_deepvariant --model_type=PACBIO --ref ref.fa --reads=aln.primary_alignments.sorted.bam --output_vcf=germline.vcf
 
 ## use hapfusion to phase germline mutations
 hapfusion phase --bam aln.primary_alignments.sorted.bam --vcf germline.vcf.bgz -o germline.phased.vcf 
+bgzip -c germline.phased.vcf > germline.phased.vcf.bgz
+tabix -p vcf germline.phased.vcf.bgz
 
 ## call crossovers and gene conversions
-hapfusion call -i aln.primary_alignments.sorted.bam --vcf germline.phased.vcf -o recombinants.vcf 
+hapfusion call -i aln.primary_alignments.sorted.bam --vcf germline.phased.vcf.bgz -o recombinations.txt
+
+## plot crossovers and gene conversions
+hapfusion plot -i aln.primary_alignments.sorted.bam --vcf germline.phased.vcf.bgz --fusion recombinations.txt -o pdf
 ```
 
 ## <a name="uguide"></a>Users' Guide
 
-hapfusion (hapfusion) is leverages the base accuracy and read length of Pacific Biosciences (PacBio) CCS reads to call crossovers and gene conversions. 
+hapfusion leverages CCS base accuracy and read length to crossovers (CO), gene conversions (NCO) and complex gene conversions (CNCO).
 
-### <a name="general"></a>General Usage
+#### <a name="alignment"></a>minimap2 CCS read alignment
 
-hapfusion accepts as input BAM file with CCS read alignments and VCF file with phased germline mutations and returns a VCF file with crossovers and gene conversions. hapfusion, currently, only accepts minimap2 generated BAM files as `--cs` tag is required for somatic mutation calling. The read alignments must be sorted, compressed and indexed using SAMtools. In addition, secondary and supplementary alignment needs to be removed from the BAM file as deepvariant can only process primary alignments.
+Currently, hapfusion only accepts minimap2 CCS read alignment SAM/BAM file with a `--cs` tag, like the `cigar` string provides information about the matches and mismatches between the read and the reference genome. pbmm2 and ngmlr does not provide the `--cs` tag and as a result, pbmm2 and ngmlr SAM/BAM files are incompatible with himut. The `--cs` tag is favored over the `cigar` string because it offers a more elegant representation of the differences between the read and the reference genome (source: https://lh3.github.io/2018/03/27/the-history-the-cigar-x-operator-and-the-md-tag).
 
-```sh
-minimap2 "@RG\tSM:sample" -ax map-hifi --cs ref.fa pacbio.ccs.fastq.gz | samtools sort -o aln.sorted.bam # SM tag must be provided to retrieve sample ID
-samtools view -bh -F 0x900 aln.sorted.bam > aln.primary_alignments.sorted.bam # select primary alignments
-samtools merge *.primary_alignments.sorted.bam | samtools sort -o aln.primary_alignments.mergeSorted.bam -
-samtools index aln.primary_alignments.sorted.bam
-samtools index aln.primary_alignments.mergeSorted.bam 
-```
+#### <a name="general"></a>General Usage
 
-#### Haplotype phase heterozygous single nucleotide polymorphisms 
-
-CCS reads have an average read length of ~10-20kb and can span a number of heterozygous single nucleotide polymorphisms (hetSNPs). To haplotype phase the hetSNPs, we treat each hetSNP as a node in a graph and as CCS reads are able to span multiple hetSNPs, we are able to count the number of edges between two nodes and determine whether the two nodes belong to the same haplotype. Two or more haplotype consistent nodes are connected to construct a haplotype block across the chromosome and we are able to assign CCS reads to a haplotype block based on their hetSNP composition. If the CCS read belongs to multiple haplotype blocks or if the CCS read does not have a hetSNP, CCS read is determined to be not phased. We would like to highlight that the length of haplotype blocks and the number of phased hetSNPs will be dependent on SNP density, heterozygosity and CCS read length.
+hapfusion accepts as input a BAM file with primary CCS read alignments and a VCF file with phased germline mutations and returns a file with crossovers and gene conversions. 
 
 ```sh
-hapfusion phase --bam aln.primary_alignments.sorted.bam --vcf germline.vcf.bgz -o germline.phased.vcf 
+## phase germline mutations
+hapfusion phase --bam aln.primary_alignments.sorted.bam --vcf germline.vcf.bgz -o germline.phased.vcf
+
+## call crossovers and gene conversions
+hapfusion call -i aln.primary_alignments.sorted.bam --vcf germline.phased.vcf.bgz -o recombinations.txt
+
+## plot crossovers and gene conversions
+hapfusion plot -i aln.primary_alignments.sorted.bam --vcf germline.phased.vcf.bgz --fusion recombinations.txt -o pdf
 ```
 
-hetSNPs belonging to the same phase set (PS) in the VCF file belongs to the same haplotype block.
+#### <a name="limits"></a>Limitations
 
-#### call crossovers and gene conversions 
-
-```sh
-hapfusion call -i aln.primary_alignments.sorted.bam --vcf germline.vcf -o recombinantions.txt
-```
-
-### Limitations
-
-As mentioned above, the number of called crossovers and gene conversions will be dependent on the number of phased hetSNPs and length of haplotype blocks, which will be dependent on SNP density, heterozygosity and CCS read length.
-
+The number of crossovers and gene conversions detcted from the sample is dependent on the number of phased hetSNPs, length of haplotype blocks and CCS read length.
